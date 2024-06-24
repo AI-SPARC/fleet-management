@@ -1,0 +1,14 @@
+{
+  "interface_name": "kobuki",
+  "major_version": "v2",
+  "manufacturer": "ic",
+  "serial_numbers": [
+    "0001",
+    "0002",
+    "0003"
+  ],
+  "topics": [
+    "order",
+    "state"
+  ]
+}
