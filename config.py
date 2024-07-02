@@ -19,3 +19,5 @@ def create_mqtt_client():
         client.subscribe(topic)
     
     return client
+
+mqtt_client = create_mqtt_client()
