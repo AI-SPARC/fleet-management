@@ -1,7 +1,15 @@
+from mqtt.handlers.handle_connection import handle_connection
+
+topic_handlers = {
+    "connection": handle_connection,
+}
+
 def on_connect(client, userdata, flags, rc):
     print(f"Connected to client {client} with result code {str(rc)}")
-    # Aqui você pode adicionar qualquer lógica adicional necessária quando a conexão é estabelecida
 
 def on_message(client, userdata, msg):
-    print(f"Message received on topic {msg.topic}: {msg.payload.decode()}")
-    # Aqui você pode processar a mensagem recebida (por exemplo, atualizar o status de um AGV)
+    topic = msg.topic.split('/')[-1] 
+
+    if topic in topic_handlers:
+        handler_function = topic_handlers[topic]
+        handler_function(client, userdata, msg)
