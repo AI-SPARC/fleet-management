@@ -14,7 +14,7 @@ def create_mqtt_client():
     client.on_connect = on_connect
     client.on_message = on_message
     
-    client.connect(BROKER_ADDRESS, BROKER_PORT, 60)
+    client.connect(BROKER_ADDRESS, int(BROKER_PORT), 60)
     
     for topic in subscribe_topics:
         client.subscribe(topic)
