@@ -15,6 +15,22 @@ templates = Jinja2Templates(directory="templates")
 async def read_root(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
+@router.get("/order", response_class=HTMLResponse)
+async def publish_order_template(request: Request):
+    return templates.TemplateResponse("publish_order.html", {"request": request})
+
+@router.get("/nodes", response_class=HTMLResponse)
+async def nodes_template(request: Request):
+    return templates.TemplateResponse("create_nodes.html", {"request": request})
+
+@router.get("/edges", response_class=HTMLResponse)
+async def edges_template(request: Request):
+    return templates.TemplateResponse("create_edges.html", {"request": request})
+
+@router.get("/actions", response_class=HTMLResponse)
+async def actions_template(request: Request):
+    return templates.TemplateResponse("create_actions.html", {"request": request})
+
 @router.post("/{interface_name}/{major_version}/{manufacturer}/{serial_number}/order")
 async def post_order_topic(interface_name: str, major_version: str, manufacturer: str, serial_number: str, data: Order):
     topic = f"{interface_name}/{major_version}/{manufacturer}/{serial_number}/order"
