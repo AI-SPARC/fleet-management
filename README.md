@@ -36,6 +36,7 @@ pip install -r .\requirements.txt
 3. Populate the .env with the Discord Token:
 ```
 BROKER_ADDRESS=write your broker address here
+BROKER_PORT=write your broker port here
 ```
 
 ## 🚀 Running
