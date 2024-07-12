@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Fleet Management</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  </head>
+  <body>
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+      <a class="navbar-brand" href="/"><i class="bi bi-robot" style="padding: 10px;"></i></a>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav">
+          <li class="nav-item active">
+            <a class="nav-link" href="/order">Publish order</a>
+          </li>  
+          <li class="nav-item">
+            <a class="nav-link" href="/nodes">Create node</a>
+          </li> 
+          <li class="nav-item">
+            <a class="nav-link" href="/edges">Create edge</a>
+          </li> 
+          <li class="nav-item">
+            <a class="nav-link" href="/actions">Create action</a>
+          </li>  
+        </ul>
+      </div>
+    </nav>
+    <div class="container" style="padding: 20px;">
+      <h1>Create new order</h1>
+      <form [formGroup]="orderForm" (ngSubmit)="onSubmit()">
+        <div class="row mb-3">
+          <div class="col-md-4">
+            <label for="headerId" class="form-label">Header ID</label>
+            <input type="number" class="form-control" id="headerId" formControlName="headerId">
+          </div>
+          <div class="col-md-4">
+            <label for="timestamp" class="form-label">Timestamp</label>
+            <input type="datetime-local" class="form-control" id="timestamp" formControlName="timestamp">
+          </div>
+          <div class="col-md-4">
+            <label for="version" class="form-label">Version</label>
+            <input type="text" class="form-control" id="version" formControlName="version">
+          </div>
+        </div>
+
+        <div class="row mb-3">
+          <div class="col-md-4">
+            <label for="manufacturer" class="form-label">Manufacturer</label>
+            <input type="text" class="form-control" id="manufacturer" formControlName="manufacturer">
+          </div>
+          <div class="col-md-4">
+            <label for="serialNumber" class="form-label">Serial Number</label>
+            <input type="text" class="form-control" id="serialNumber" formControlName="serialNumber">
+          </div>
+          <div class="col-md-4">
+            <label for="orderId" class="form-label">Order ID</label>
+            <input type="text" class="form-control" id="orderId" formControlName="orderId">
+          </div>
+        </div>
+
+        <div class="row mb-3">
+          <div class="col-md-4">
+            <label for="orderUpdateId" class="form-label">Order Update ID</label>
+            <input type="number" class="form-control" id="orderUpdateId" formControlName="orderUpdateId">
+          </div>
+          <div class="col-md-4">
+            <label for="zoneSetId" class="form-label">Zone Set ID</label>
+            <input type="text" class="form-control" id="zoneSetId" formControlName="zoneSetId">
+          </div>
+        </div>
+
+        <div class="row mb-3">
+          <div class="col-md-4">
+            <h3>Nodes</h3>
+            <select class="form-select form-select-sm" aria-label=".form-select-sm example">
+              <option selected disabled>Select node</option>
+              <option value="1">One</option>
+              <option value="2">Two</option>
+              <option value="3">Three</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="row mb-3">
+          <div class="col-md-4">
+            <h3>Edges</h3>
+            <select class="form-select form-select-sm" aria-label=".form-select-sm example">
+              <option selected disabled>Select edge</option>
+              <option value="1">One</option>
+              <option value="2">Two</option>
+              <option value="3">Three</option>
+            </select>
+          </div>
+        </div>
+        
+        <div class="row mb-3">
+          <div class="col-md-4">
+            <h3>Actions</h3>
+            <select class="form-select form-select-sm" aria-label=".form-select-sm example">
+              <option selected disabled>Select action</option>
+              <option value="1">One</option>
+              <option value="2">Two</option>
+              <option value="3">Three</option>
+            </select>
+          </div>
+        </div>
+       
+        <button type="submit" class="btn btn-primary">Submit</button>
+      </form>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+  </body>
+</html>

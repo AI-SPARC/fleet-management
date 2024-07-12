@@ -1,15 +1,13 @@
 from fastapi import APIRouter, Request, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
-from models.Connection import Connection
-from models.Factsheet import Factsheet
-from models.InstantActions import InstantActions
-from models.Order import Order
-from models.State import State
+from fastapi.staticfiles import StaticFiles
+from api.models.__all_models import Connection, Factsheet, InstantActions, Order, State, Visualization
 from api.handle_message import send_mqtt_message
 
 router = APIRouter()
-templates = Jinja2Templates(directory="templates")
+router.mount("/static", StaticFiles(directory="api/static"), name="static")
+templates = Jinja2Templates(directory="api/templates")
 
 @router.get("/", response_class=HTMLResponse)
 async def read_root(request: Request):
@@ -30,6 +28,10 @@ async def edges_template(request: Request):
 @router.get("/actions", response_class=HTMLResponse)
 async def actions_template(request: Request):
     return templates.TemplateResponse("create_actions.html", {"request": request})
+
+@router.get("/digital_twin", response_class=HTMLResponse)
+async def digital_twin_template(request: Request):
+    return templates.TemplateResponse("digital_twin.html", {"request": request})
 
 @router.post("/{interface_name}/{major_version}/{manufacturer}/{serial_number}/order")
 async def post_order_topic(interface_name: str, major_version: str, manufacturer: str, serial_number: str, data: Order):

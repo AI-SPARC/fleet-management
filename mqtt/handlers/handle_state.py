@@ -1,6 +1,6 @@
 import json
 from pydantic import ValidationError
-from models.Connection import Connection
+from api.models.Connection import Connection
 
 def handle_connection(client, userdata, msg):
     payload_str = msg.payload.decode()

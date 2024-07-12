@@ -1,8 +1,7 @@
 import json
 from config import mqtt_client
 from typing import Union
-from models.InstantActions import InstantActions
-from models.Order import Order
+from api.models.__all_models import Order, InstantActions
 from http.client import HTTPException
     
 def send_mqtt_message(topic: str, data: Union[Order, InstantActions]) -> dict:

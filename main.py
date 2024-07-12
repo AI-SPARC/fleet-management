@@ -2,11 +2,13 @@ import asyncio
 import signal
 import sys
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 from api.routes import router
 from config import mqtt_client
 from contextlib import asynccontextmanager
 
 app = FastAPI()
+app.mount("/static", StaticFiles(directory="api/static"), name="static")
 app.include_router(router)
 
 mqtt_task = None

@@ -1,6 +1,6 @@
 # Fleet Management System 🚘
 
-<img align="left" width="150" height="150" src="./img/fleet-manager-icon.png">
+<img align="left" width="150" height="150" src="./docs/img/fleet-manager-icon.png">
 
 ### A master control for automated guided vehicles(AGVs) following the VDA-5050 standard.
 Write something here... 
