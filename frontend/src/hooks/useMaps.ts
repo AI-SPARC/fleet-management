@@ -5,6 +5,7 @@ import {
   type MapCalibrationInput,
   type MapEdgeInput,
   type MapNodeInput,
+  type MapNodePositionInput,
 } from '../api/client';
 import { queryKeys } from '../api/queryKeys';
 
@@ -44,6 +45,16 @@ export function useAddMapEdge(mapId: string | undefined) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (input: MapEdgeInput) => apiClient.addMapEdge(mapId as string, input),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: queryKeys.maps.detail(mapId ?? '') }),
+  });
+}
+
+export function useUpdateMapNode(mapId: string | undefined) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ nodeKey, position }: { nodeKey: string; position: MapNodePositionInput }) =>
+      apiClient.updateMapNode(mapId as string, nodeKey, position),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: queryKeys.maps.detail(mapId ?? '') }),
   });

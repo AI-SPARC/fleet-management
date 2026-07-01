@@ -80,7 +80,7 @@ describe('map graph workspace', () => {
         edgeKey: 'A-B',
         fromNodeKey: 'A',
         toNodeKey: 'B',
-        distance: 1,
+        distance: 5.385,
         bidirectional: true,
       }),
     );
@@ -118,6 +118,57 @@ describe('map graph workspace', () => {
       'transform',
       'translate(100 300)',
     );
+  });
+
+  it('converts map clicks and node drags into metric coordinates', () => {
+    const selectPoint = vi.fn();
+    const moveNode = vi.fn();
+    vi.spyOn(SVGSVGElement.prototype, 'getBoundingClientRect').mockReturnValue({
+      left: 0,
+      top: 0,
+      width: 800,
+      height: 400,
+      right: 800,
+      bottom: 400,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    });
+    const { container } = render(
+      <MapGraph
+        map={{
+          id: 'map-1',
+          name: 'Editable lab',
+          description: null,
+          nodes,
+          edges: [],
+          background: {
+            filename: 'lab.png',
+            contentType: 'image/png',
+            width: 800,
+            height: 400,
+            updatedAt: '2026-06-30T20:00:00Z',
+            calibration: {
+              metersPerPixel: 0.02,
+              originPixelX: 100,
+              originPixelY: 300,
+              rotationDegrees: 0,
+            },
+          },
+        }}
+        onMapClick={selectPoint}
+        onNodeMove={moveNode}
+        robots={[]}
+      />,
+    );
+    const map = screen.getByRole('img', { name: 'Graph map Editable lab' });
+    fireEvent.click(map, { clientX: 300, clientY: 200 });
+    fireEvent.pointerDown(container.querySelector('[data-node-key="A"]')!, { pointerId: 1 });
+    fireEvent.pointerMove(map, { clientX: 300, clientY: 200, pointerId: 1 });
+    fireEvent.pointerUp(map, { clientX: 300, clientY: 200, pointerId: 1 });
+
+    expect(selectPoint).toHaveBeenCalledWith({ x: 4, y: 2 });
+    expect(moveNode).toHaveBeenCalledWith('A', { x: 4, y: 2 });
   });
 
   it('captures two image points and their world coordinates for calibration', () => {

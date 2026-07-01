@@ -1,5 +1,7 @@
+import { useState, type MouseEvent, type PointerEvent } from 'react';
+
 import { mapBackgroundUrl, type FleetMapDetail, type Robot, type RobotState } from '../../api/client';
-import { worldToPixel } from './mapGeometry';
+import { pixelToWorld, worldToPixel } from './mapGeometry';
 
 export type RobotMapPosition = {
   robot: Robot;
@@ -10,11 +12,17 @@ export function MapGraph({
   map,
   robots,
   highlightedNodeKeys = [],
+  onMapClick,
+  onNodeMove,
 }: {
   map: FleetMapDetail;
   robots: RobotMapPosition[];
   highlightedNodeKeys?: string[];
+  onMapClick?: (point: { x: number; y: number }) => void;
+  onNodeMove?: (nodeKey: string, point: { x: number; y: number }) => void;
 }) {
+  const [draggingNodeKey, setDraggingNodeKey] = useState<string>();
+  const [dragPoint, setDragPoint] = useState<{ x: number; y: number }>();
   const positions = [
     ...map.nodes.map((node) => ({ x: node.x, y: node.y })),
     ...robots.flatMap(({ state }) => {
@@ -32,11 +40,60 @@ export function MapGraph({
   const visualScale = Math.max(canvasWidth / 900, canvasHeight / 480);
   const nodesByKey = new Map(map.nodes.map((node) => [node.nodeKey, node]));
   const highlighted = new Set(highlightedNodeKeys);
+  const nodeCoordinates = (node: { nodeKey: string; x: number; y: number }) =>
+    node.nodeKey === draggingNodeKey && dragPoint ? dragPoint : node;
+
+  const worldPointFromEvent = (
+    svg: SVGSVGElement,
+    event: { clientX: number; clientY: number },
+  ) => {
+    if (!calibration) return undefined;
+    return pixelToWorld(screenToSvgPoint(svg, event), calibration);
+  };
+
+  const selectMapPoint = (event: MouseEvent<SVGSVGElement>) => {
+    if (!onMapClick || !calibration) return;
+    if (
+      event.target instanceof Element &&
+      event.target.closest('[data-node-key], [data-edge-key], [data-robot-id]')
+    ) {
+      return;
+    }
+    const point = worldPointFromEvent(event.currentTarget, event);
+    if (point) onMapClick(point);
+  };
+
+  const moveDraggedNode = (event: PointerEvent<SVGSVGElement>) => {
+    if (!draggingNodeKey) return;
+    const point = worldPointFromEvent(event.currentTarget, event);
+    if (point) setDragPoint(point);
+  };
+
+  const finishNodeDrag = (event: PointerEvent<SVGSVGElement>) => {
+    if (draggingNodeKey && dragPoint) onNodeMove?.(draggingNodeKey, dragPoint);
+    if (
+      typeof event.currentTarget.hasPointerCapture === 'function' &&
+      event.currentTarget.hasPointerCapture(event.pointerId)
+    ) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    setDraggingNodeKey(undefined);
+    setDragPoint(undefined);
+  };
+
+  const cancelNodeDrag = () => {
+    setDraggingNodeKey(undefined);
+    setDragPoint(undefined);
+  };
 
   return (
     <svg
       aria-label={`Graph map ${map.name}`}
       className="h-[480px] w-full rounded-2xl border bg-card"
+      onClick={selectMapPoint}
+      onPointerCancel={cancelNodeDrag}
+      onPointerMove={moveDraggedNode}
+      onPointerUp={finishNodeDrag}
       role="img"
       viewBox={`0 0 ${canvasWidth} ${canvasHeight}`}
     >
@@ -71,8 +128,10 @@ export function MapGraph({
           const start = nodesByKey.get(edge.fromNodeKey);
           const end = nodesByKey.get(edge.toNodeKey);
           if (!start || !end) return null;
-          const from = project(start.x, start.y);
-          const to = project(end.x, end.y);
+          const startCoordinates = nodeCoordinates(start);
+          const endCoordinates = nodeCoordinates(end);
+          const from = project(startCoordinates.x, startCoordinates.y);
+          const to = project(endCoordinates.x, endCoordinates.y);
           const onRoute = highlighted.has(start.nodeKey) && highlighted.has(end.nodeKey);
           return (
             <line
@@ -91,9 +150,26 @@ export function MapGraph({
       </g>
       <g>
         {map.nodes.map((node) => {
-          const point = project(node.x, node.y);
+          const coordinates = nodeCoordinates(node);
+          const point = project(coordinates.x, coordinates.y);
           return (
-            <g data-node-key={node.nodeKey} key={node.id} transform={`translate(${point.x} ${point.y})`}>
+            <g
+              className={calibration && onNodeMove ? 'cursor-grab' : undefined}
+              data-node-key={node.nodeKey}
+              key={node.id}
+              onClick={(event) => event.stopPropagation()}
+              onPointerDown={(event) => {
+                if (!calibration || !onNodeMove) return;
+                event.stopPropagation();
+                const svg = event.currentTarget.ownerSVGElement;
+                if (svg && typeof svg.setPointerCapture === 'function') {
+                  svg.setPointerCapture(event.pointerId);
+                }
+                setDraggingNodeKey(node.nodeKey);
+                setDragPoint({ x: node.x, y: node.y });
+              }}
+              transform={`translate(${point.x} ${point.y})`}
+            >
               <circle
                 fill={highlighted.has(node.nodeKey) ? '#111' : '#fff'}
                 r={11 * visualScale}
@@ -179,4 +255,23 @@ function createProjection(positions: Array<{ x: number; y: number }>) {
     x: 50 + (x - minX) * scale,
     y: 430 - (y - minY) * scale,
   });
+}
+
+function screenToSvgPoint(
+  svg: SVGSVGElement,
+  event: { clientX: number; clientY: number },
+): { x: number; y: number } {
+  const matrix = typeof svg.getScreenCTM === 'function' ? svg.getScreenCTM() : null;
+  if (matrix) {
+    const point = new DOMPoint(event.clientX, event.clientY).matrixTransform(matrix.inverse());
+    return { x: point.x, y: point.y };
+  }
+  const bounds = svg.getBoundingClientRect();
+  const [viewX, viewY, viewWidth, viewHeight] = (svg.getAttribute('viewBox') ?? '0 0 1 1')
+    .split(/\s+/)
+    .map(Number);
+  return {
+    x: viewX + ((event.clientX - bounds.left) / bounds.width) * viewWidth,
+    y: viewY + ((event.clientY - bounds.top) / bounds.height) * viewHeight,
+  };
 }

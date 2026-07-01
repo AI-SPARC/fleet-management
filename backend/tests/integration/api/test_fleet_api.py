@@ -229,6 +229,24 @@ async def test_map_api_rejects_dangling_and_invalid_edges(context: ApiTestContex
     assert invalid_distance.status_code == 422
 
 
+async def test_update_map_node_position(context: ApiTestContext) -> None:
+    map_response = await context.client.post("/api/v1/maps", json={"name": "Editable map"})
+    map_id = map_response.json()["id"]
+    await context.client.post(
+        f"/api/v1/maps/{map_id}/nodes",
+        json={"nodeKey": "A", "x": 0, "y": 0, "theta": 0.5},
+    )
+
+    response = await context.client.patch(
+        f"/api/v1/maps/{map_id}/nodes/A", json={"x": 2.5, "y": 3.5}
+    )
+
+    assert response.status_code == 200
+    assert response.json()["x"] == 2.5
+    assert response.json()["y"] == 3.5
+    assert response.json()["theta"] == 0.5
+
+
 async def test_create_mission(context: ApiTestContext) -> None:
     robot_response = await context.client.post(
         "/api/v1/robots", json={"manufacturer": "ResearchBot", "serialNumber": "RB003"}

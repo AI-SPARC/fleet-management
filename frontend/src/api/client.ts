@@ -86,6 +86,7 @@ export type FleetMapDetail = FleetMap & {
 };
 
 export type MapNodeInput = Pick<MapNode, 'nodeKey' | 'x' | 'y' | 'theta'>;
+export type MapNodePositionInput = Pick<MapNode, 'x' | 'y'> & { theta?: number };
 export type MapEdgeInput = Pick<
   MapEdge,
   'edgeKey' | 'fromNodeKey' | 'toNodeKey' | 'distance' | 'bidirectional'
@@ -232,6 +233,15 @@ export function createApiClient(baseUrl: string) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(input),
       }),
+    updateMapNode: (mapId: string, nodeKey: string, input: MapNodePositionInput) =>
+      request<MapNode>(
+        `/maps/${encodeURIComponent(mapId)}/nodes/${encodeURIComponent(nodeKey)}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(input),
+        },
+      ),
     addMapEdge: (mapId: string, input: MapEdgeInput) =>
       request<{ id: string; edgeKey: string }>(`/maps/${encodeURIComponent(mapId)}/edges`, {
         method: 'POST',

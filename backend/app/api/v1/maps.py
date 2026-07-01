@@ -14,6 +14,7 @@ from app.api.v1.schemas import (
     MapNodeRead,
     MapRead,
     NodeCreate,
+    NodeUpdate,
     RoutePreviewRead,
     RoutePreviewRequest,
 )
@@ -146,6 +147,22 @@ async def add_node(map_id: str, payload: NodeCreate, session: SessionDep) -> dic
     return {"id": node.id, "nodeKey": node.node_key}
 
 
+@router.patch("/{map_id}/nodes/{node_key}", response_model=MapNodeRead)
+async def update_node(
+    map_id: str,
+    node_key: str,
+    payload: NodeUpdate,
+    session: SessionDep,
+) -> MapNodeRead:
+    try:
+        node = await MapService(session).update_node(
+            map_id, node_key, payload.x, payload.y, payload.theta
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=_map_error_status(exc), detail=str(exc)) from exc
+    return MapNodeRead.model_validate(node, from_attributes=True)
+
+
 @router.post("/{map_id}/edges", status_code=status.HTTP_201_CREATED)
 async def add_edge(map_id: str, payload: EdgeCreate, session: SessionDep) -> dict[str, str]:
     try:
@@ -176,7 +193,7 @@ async def route_preview(
 
 
 def _map_error_status(exc: ValueError) -> int:
-    if str(exc) in {"Map not found", "Map background not found"}:
+    if str(exc) in {"Map not found", "Map background not found", "Map node not found"}:
         return status.HTTP_404_NOT_FOUND
     return status.HTTP_422_UNPROCESSABLE_CONTENT
 

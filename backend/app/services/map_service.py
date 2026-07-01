@@ -90,6 +90,28 @@ class MapService:
         await self.session.refresh(edge)
         return edge
 
+    async def update_node(
+        self,
+        map_id: str,
+        node_key: str,
+        x: float,
+        y: float,
+        theta: float | None = None,
+    ) -> MapNode:
+        await self._ensure_map_exists(map_id)
+        node = await self.session.scalar(
+            select(MapNode).where(MapNode.map_id == map_id, MapNode.node_key == node_key)
+        )
+        if node is None:
+            raise ValueError("Map node not found")
+        node.x = x
+        node.y = y
+        if theta is not None:
+            node.theta = theta
+        await self.session.commit()
+        await self.session.refresh(node)
+        return node
+
     async def route_preview(
         self,
         map_id: str,

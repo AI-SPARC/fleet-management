@@ -100,6 +100,7 @@ GET  /api/v1/maps
 POST /api/v1/maps
 GET  /api/v1/maps/{map_id}
 POST /api/v1/maps/{map_id}/nodes
+PATCH /api/v1/maps/{map_id}/nodes/{node_key}
 POST /api/v1/maps/{map_id}/edges
 POST /api/v1/maps/{map_id}/route-preview
 PUT  /api/v1/maps/{map_id}/background

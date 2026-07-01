@@ -122,6 +122,12 @@ class NodeCreate(BaseModel):
     theta: float = 0.0
 
 
+class NodeUpdate(BaseModel):
+    x: float
+    y: float
+    theta: float | None = None
+
+
 class EdgeCreate(BaseModel):
     edge_key: str = Field(alias="edgeKey", min_length=1, max_length=128)
     from_node_key: str = Field(alias="fromNodeKey", min_length=1, max_length=128)
