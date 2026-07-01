@@ -24,6 +24,7 @@ describe('MissionsPage', () => {
       id: 'map-1',
       name: 'Lab',
       description: null,
+      background: null,
       nodes: [
         { id: 'node-a', nodeKey: 'A', x: 0, y: 0, theta: 0, nodeType: 'waypoint' },
         { id: 'node-b', nodeKey: 'B', x: 1, y: 0, theta: 0, nodeType: 'waypoint' },

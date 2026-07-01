@@ -1,9 +1,13 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Query, Request, Response, status
 from sqlalchemy import select
+from sqlalchemy.orm import undefer
 
 from app.api.deps import SessionDep
 from app.api.v1.schemas import (
     EdgeCreate,
+    MapBackgroundRead,
+    MapCalibrationRead,
+    MapCalibrationUpdate,
     MapCreate,
     MapDetailRead,
     MapEdgeRead,
@@ -13,7 +17,8 @@ from app.api.v1.schemas import (
     RoutePreviewRead,
     RoutePreviewRequest,
 )
-from app.db.base import MapEdge, MapLayout, MapNode
+from app.db.base import MapBackground, MapEdge, MapLayout, MapNode
+from app.services.map_background_service import MapBackgroundService, Point
 from app.services.map_service import MapService
 
 router = APIRouter(prefix="/maps", tags=["maps"])
@@ -49,13 +54,85 @@ async def get_map(map_id: str, session: SessionDep) -> MapDetailRead:
             )
         ).scalars()
     )
+    background = await session.get(MapBackground, map_id)
     return MapDetailRead(
         id=layout.id,
         name=layout.name,
         description=layout.description,
         nodes=[MapNodeRead.model_validate(node, from_attributes=True) for node in nodes],
         edges=[MapEdgeRead.model_validate(edge, from_attributes=True) for edge in edges],
+        background=_background_read(background) if background is not None else None,
     )
+
+
+@router.put("/{map_id}/background", response_model=MapBackgroundRead)
+async def upload_map_background(
+    map_id: str,
+    request: Request,
+    session: SessionDep,
+    filename: str = Query(default="map-background", max_length=255),
+) -> MapBackgroundRead:
+    try:
+        background = await MapBackgroundService(session).upload(
+            map_id,
+            filename,
+            request.headers.get("content-type"),
+            await request.body(),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=_map_error_status(exc), detail=str(exc)) from exc
+    return _background_read(background)
+
+
+@router.get("/{map_id}/background/content")
+async def get_map_background_content(map_id: str, session: SessionDep) -> Response:
+    background = (
+        await session.execute(
+            select(MapBackground)
+            .options(undefer(MapBackground.image_data))
+            .where(MapBackground.map_id == map_id)
+        )
+    ).scalar_one_or_none()
+    if background is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Map background not found"
+        )
+    return Response(
+        content=background.image_data,
+        media_type=background.content_type,
+        headers={
+            "Cache-Control": "no-cache",
+            "Content-Disposition": f'inline; filename="{background.filename}"',
+        },
+    )
+
+
+@router.put("/{map_id}/background/calibration", response_model=MapBackgroundRead)
+async def calibrate_map_background(
+    map_id: str,
+    payload: MapCalibrationUpdate,
+    session: SessionDep,
+) -> MapBackgroundRead:
+    try:
+        background = await MapBackgroundService(session).calibrate(
+            map_id,
+            Point(payload.pixel_point_a.x, payload.pixel_point_a.y),
+            Point(payload.pixel_point_b.x, payload.pixel_point_b.y),
+            Point(payload.world_point_a.x, payload.world_point_a.y),
+            Point(payload.world_point_b.x, payload.world_point_b.y),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=_map_error_status(exc), detail=str(exc)) from exc
+    return _background_read(background)
+
+
+@router.delete("/{map_id}/background", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_map_background(map_id: str, session: SessionDep) -> Response:
+    try:
+        await MapBackgroundService(session).delete(map_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=_map_error_status(exc), detail=str(exc)) from exc
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post("/{map_id}/nodes", status_code=status.HTTP_201_CREATED)
@@ -99,6 +176,34 @@ async def route_preview(
 
 
 def _map_error_status(exc: ValueError) -> int:
-    if str(exc) == "Map not found":
+    if str(exc) in {"Map not found", "Map background not found"}:
         return status.HTTP_404_NOT_FOUND
     return status.HTTP_422_UNPROCESSABLE_CONTENT
+
+
+def _background_read(background: MapBackground) -> MapBackgroundRead:
+    calibration = None
+    meters_per_pixel = background.meters_per_pixel
+    origin_pixel_x = background.origin_pixel_x
+    origin_pixel_y = background.origin_pixel_y
+    rotation_degrees = background.rotation_degrees
+    if (
+        meters_per_pixel is not None
+        and origin_pixel_x is not None
+        and origin_pixel_y is not None
+        and rotation_degrees is not None
+    ):
+        calibration = MapCalibrationRead(
+            meters_per_pixel=meters_per_pixel,
+            origin_pixel_x=origin_pixel_x,
+            origin_pixel_y=origin_pixel_y,
+            rotation_degrees=rotation_degrees,
+        )
+    return MapBackgroundRead(
+        filename=background.filename,
+        content_type=background.content_type,
+        width=background.width,
+        height=background.height,
+        updated_at=background.updated_at,
+        calibration=calibration,
+    )

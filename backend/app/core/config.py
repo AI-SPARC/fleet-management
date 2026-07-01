@@ -22,6 +22,8 @@ class Settings(BaseSettings):
     mqtt_password: str | None = None
     mqtt_reconnect_min_seconds: float = 1.0
     mqtt_reconnect_max_seconds: float = 30.0
+    map_background_max_bytes: int = 10 * 1024 * 1024
+    map_background_max_pixels: int = 40_000_000
     mqtt_interface_name: str = "vda5050"
     vda5050_major_version: str = "v3"
     vda5050_protocol_version: str = "3.0.0"

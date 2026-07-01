@@ -1,6 +1,7 @@
 import { useMemo, useState, type FormEvent } from 'react';
 
 import { EdgeEditor } from '../components/map/EdgeEditor';
+import { MapBackgroundEditor } from '../components/map/MapBackgroundEditor';
 import { MapGraph } from '../components/map/MapGraph';
 import { NodeEditor } from '../components/map/NodeEditor';
 import { Badge } from '../components/ui/badge';
@@ -9,10 +10,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import {
   useAddMapEdge,
   useAddMapNode,
+  useCalibrateMapBackground,
   useCreateMap,
   useMap,
   useMaps,
   useRoutePreview,
+  useUploadMapBackground,
 } from '../hooks/useMaps';
 import { useRobots, useRobotStates } from '../hooks/useRobots';
 
@@ -27,6 +30,8 @@ export function MapPage() {
   const addNode = useAddMapNode(activeMapId);
   const addEdge = useAddMapEdge(activeMapId);
   const routePreview = useRoutePreview(activeMapId);
+  const uploadBackground = useUploadMapBackground(activeMapId);
+  const calibrateBackground = useCalibrateMapBackground(activeMapId);
 
   const robotPositions = useMemo(
     () =>
@@ -58,6 +63,18 @@ export function MapPage() {
 
       {map.data ? (
         <>
+          <MapBackgroundEditor
+            background={map.data.background}
+            busy={uploadBackground.isPending || calibrateBackground.isPending}
+            mapId={map.data.id}
+            onCalibrate={(input) => calibrateBackground.mutateAsync(input)}
+            onUpload={(file) => uploadBackground.mutateAsync(file)}
+          />
+          {(uploadBackground.isError || calibrateBackground.isError) && (
+            <p className="m-0 text-sm text-red-700">
+              {uploadBackground.error?.message || calibrateBackground.error?.message}
+            </p>
+          )}
           <section className="grid grid-cols-[minmax(0,1fr)_280px] gap-4">
             <MapGraph map={map.data} robots={robotPositions} highlightedNodeKeys={routePreview.data?.nodeKeys} />
             <Card className="rounded-2xl bg-card/80 shadow-none">

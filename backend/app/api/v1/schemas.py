@@ -81,9 +81,38 @@ class MapEdgeRead(BaseModel):
     bidirectional: bool
 
 
+class MapCalibrationRead(BaseModel):
+    meters_per_pixel: float = Field(serialization_alias="metersPerPixel")
+    origin_pixel_x: float = Field(serialization_alias="originPixelX")
+    origin_pixel_y: float = Field(serialization_alias="originPixelY")
+    rotation_degrees: float = Field(serialization_alias="rotationDegrees")
+
+
+class MapBackgroundRead(BaseModel):
+    filename: str
+    content_type: str = Field(serialization_alias="contentType")
+    width: int
+    height: int
+    updated_at: datetime = Field(serialization_alias="updatedAt")
+    calibration: MapCalibrationRead | None = None
+
+
 class MapDetailRead(MapRead):
     nodes: list[MapNodeRead]
     edges: list[MapEdgeRead]
+    background: MapBackgroundRead | None = None
+
+
+class CalibrationPoint(BaseModel):
+    x: float
+    y: float
+
+
+class MapCalibrationUpdate(BaseModel):
+    pixel_point_a: CalibrationPoint = Field(alias="pixelPointA")
+    pixel_point_b: CalibrationPoint = Field(alias="pixelPointB")
+    world_point_a: CalibrationPoint = Field(alias="worldPointA")
+    world_point_b: CalibrationPoint = Field(alias="worldPointB")
 
 
 class NodeCreate(BaseModel):

@@ -54,9 +54,35 @@ export type MapEdge = {
   bidirectional: boolean;
 };
 
+export type MapPoint = { x: number; y: number };
+
+export type MapCalibration = {
+  metersPerPixel: number;
+  originPixelX: number;
+  originPixelY: number;
+  rotationDegrees: number;
+};
+
+export type MapBackground = {
+  filename: string;
+  contentType: string;
+  width: number;
+  height: number;
+  updatedAt: string;
+  calibration: MapCalibration | null;
+};
+
+export type MapCalibrationInput = {
+  pixelPointA: MapPoint;
+  pixelPointB: MapPoint;
+  worldPointA: MapPoint;
+  worldPointB: MapPoint;
+};
+
 export type FleetMapDetail = FleetMap & {
   nodes: MapNode[];
   edges: MapEdge[];
+  background: MapBackground | null;
 };
 
 export type MapNodeInput = Pick<MapNode, 'nodeKey' | 'x' | 'y' | 'theta'>;
@@ -185,6 +211,21 @@ export function createApiClient(baseUrl: string) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(input),
       }),
+    uploadMapBackground: (mapId: string, file: File) =>
+      request<MapBackground>(
+        `/maps/${encodeURIComponent(mapId)}/background?filename=${encodeURIComponent(file.name)}`,
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': file.type || 'application/octet-stream' },
+          body: file,
+        },
+      ),
+    calibrateMapBackground: (mapId: string, input: MapCalibrationInput) =>
+      request<MapBackground>(`/maps/${encodeURIComponent(mapId)}/background/calibration`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(input),
+      }),
     addMapNode: (mapId: string, input: MapNodeInput) =>
       request<{ id: string; nodeKey: string }>(`/maps/${encodeURIComponent(mapId)}/nodes`, {
         method: 'POST',
@@ -246,3 +287,8 @@ export const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000/api/v1';
 
 export const apiClient = createApiClient(API_BASE_URL);
+
+export function mapBackgroundUrl(mapId: string, updatedAt?: string): string {
+  const suffix = updatedAt ? `?updatedAt=${encodeURIComponent(updatedAt)}` : '';
+  return `${API_BASE_URL.replace(/\/$/, '')}/maps/${encodeURIComponent(mapId)}/background/content${suffix}`;
+}

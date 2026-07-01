@@ -102,7 +102,15 @@ GET  /api/v1/maps/{map_id}
 POST /api/v1/maps/{map_id}/nodes
 POST /api/v1/maps/{map_id}/edges
 POST /api/v1/maps/{map_id}/route-preview
+PUT  /api/v1/maps/{map_id}/background
+GET  /api/v1/maps/{map_id}/background/content
+PUT  /api/v1/maps/{map_id}/background/calibration
+DELETE /api/v1/maps/{map_id}/background
 ```
+
+Background upload accepts raw PNG/JPEG bytes and a `filename` query parameter. Calibration accepts
+two pixel points and their corresponding metric world points. Map details return the derived
+meters-per-pixel, image origin, and rotation used by the frontend overlay.
 
 Map detail returns the complete node and edge graph used by the operator editor. Nodes carry
 Cartesian position and orientation; edges carry direction, distance, and bidirectional metadata.

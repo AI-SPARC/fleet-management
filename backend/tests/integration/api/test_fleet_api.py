@@ -1,8 +1,10 @@
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
+from io import BytesIO
 
 import pytest
 from httpx import ASGITransport, AsyncClient
+from PIL import Image
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.api.deps import get_session
@@ -146,6 +148,64 @@ async def test_create_map_with_nodes_and_route_preview(context: ApiTestContext) 
         "distance": 1.0,
         "bidirectional": False,
     }
+
+
+async def test_upload_calibrate_and_read_map_background(context: ApiTestContext) -> None:
+    map_response = await context.client.post("/api/v1/maps", json={"name": "Calibrated lab"})
+    map_id = map_response.json()["id"]
+    image_buffer = BytesIO()
+    Image.new("RGB", (800, 400), "white").save(image_buffer, format="PNG")
+
+    upload = await context.client.put(
+        f"/api/v1/maps/{map_id}/background",
+        params={"filename": "lab.png"},
+        content=image_buffer.getvalue(),
+        headers={"Content-Type": "image/png"},
+    )
+    calibration = await context.client.put(
+        f"/api/v1/maps/{map_id}/background/calibration",
+        json={
+            "pixelPointA": {"x": 100, "y": 300},
+            "pixelPointB": {"x": 600, "y": 300},
+            "worldPointA": {"x": 0, "y": 0},
+            "worldPointB": {"x": 10, "y": 0},
+        },
+    )
+    detail = await context.client.get(f"/api/v1/maps/{map_id}")
+    content = await context.client.get(f"/api/v1/maps/{map_id}/background/content")
+
+    assert upload.status_code == 200
+    assert upload.json() == {
+        "filename": "lab.png",
+        "contentType": "image/png",
+        "width": 800,
+        "height": 400,
+        "updatedAt": upload.json()["updatedAt"],
+        "calibration": None,
+    }
+    assert calibration.status_code == 200
+    assert calibration.json()["calibration"] == {
+        "metersPerPixel": 0.02,
+        "originPixelX": 100.0,
+        "originPixelY": 300.0,
+        "rotationDegrees": 0.0,
+    }
+    assert detail.json()["background"] == calibration.json()
+    assert content.status_code == 200
+    assert content.headers["content-type"] == "image/png"
+    assert content.content == image_buffer.getvalue()
+
+
+async def test_map_background_rejects_invalid_image(context: ApiTestContext) -> None:
+    map_response = await context.client.post("/api/v1/maps", json={"name": "Invalid image"})
+    response = await context.client.put(
+        f"/api/v1/maps/{map_response.json()['id']}/background",
+        content=b"not-an-image",
+        headers={"Content-Type": "image/png"},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == "Background must be a valid PNG or JPEG image"
 
 
 async def test_map_api_rejects_dangling_and_invalid_edges(context: ApiTestContext) -> None:
