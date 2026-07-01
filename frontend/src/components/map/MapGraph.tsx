@@ -12,12 +12,14 @@ export function MapGraph({
   map,
   robots,
   highlightedNodeKeys = [],
+  draftObstaclePoints = [],
   onMapClick,
   onNodeMove,
 }: {
   map: FleetMapDetail;
   robots: RobotMapPosition[];
   highlightedNodeKeys?: string[];
+  draftObstaclePoints?: Array<{ x: number; y: number }>;
   onMapClick?: (point: { x: number; y: number }) => void;
   onNodeMove?: (nodeKey: string, point: { x: number; y: number }) => void;
 }) {
@@ -25,6 +27,7 @@ export function MapGraph({
   const [dragPoint, setDragPoint] = useState<{ x: number; y: number }>();
   const positions = [
     ...map.nodes.map((node) => ({ x: node.x, y: node.y })),
+    ...map.obstacles.flatMap((obstacle) => obstacle.points),
     ...robots.flatMap(({ state }) => {
       const position = state.agvPosition;
       return isPosition(position) ? [{ x: position.x, y: position.y }] : [];
@@ -55,7 +58,7 @@ export function MapGraph({
     if (!onMapClick || !calibration) return;
     if (
       event.target instanceof Element &&
-      event.target.closest('[data-node-key], [data-edge-key], [data-robot-id]')
+      event.target.closest('[data-node-key], [data-edge-key], [data-robot-id], [data-obstacle-id]')
     ) {
       return;
     }
@@ -124,6 +127,40 @@ export function MapGraph({
         />
       )}
       <g>
+        {map.obstacles.map((obstacle) => (
+          <polygon
+            data-obstacle-id={obstacle.id}
+            fill="rgba(220, 38, 38, 0.2)"
+            key={obstacle.id}
+            points={obstacle.points
+              .map((point) => {
+                const projected = project(point.x, point.y);
+                return `${projected.x},${projected.y}`;
+              })
+              .join(' ')}
+            stroke="#dc2626"
+            strokeWidth={2 * visualScale}
+          >
+            <title>{obstacle.name}</title>
+          </polygon>
+        ))}
+        {draftObstaclePoints.length > 0 && (
+          <polyline
+            data-draft-obstacle
+            fill={draftObstaclePoints.length >= 3 ? 'rgba(234, 179, 8, 0.2)' : 'none'}
+            points={draftObstaclePoints
+              .map((point) => {
+                const projected = project(point.x, point.y);
+                return `${projected.x},${projected.y}`;
+              })
+              .join(' ')}
+            stroke="#ca8a04"
+            strokeDasharray={`${6 * visualScale} ${4 * visualScale}`}
+            strokeWidth={2 * visualScale}
+          />
+        )}
+      </g>
+      <g>
         {map.edges.map((edge) => {
           const start = nodesByKey.get(edge.fromNodeKey);
           const end = nodesByKey.get(edge.toNodeKey);
@@ -133,18 +170,22 @@ export function MapGraph({
           const from = project(startCoordinates.x, startCoordinates.y);
           const to = project(endCoordinates.x, endCoordinates.y);
           const onRoute = highlighted.has(start.nodeKey) && highlighted.has(end.nodeKey);
+          const stroke = edge.blocked ? '#dc2626' : onRoute ? '#111' : '#aaa';
           return (
             <line
               data-edge-key={edge.edgeKey}
               key={edge.id}
               markerEnd="url(#edge-arrow)"
-              stroke={onRoute ? '#111' : '#aaa'}
+              stroke={stroke}
+              strokeDasharray={edge.blocked ? `${7 * visualScale} ${5 * visualScale}` : undefined}
               strokeWidth={(onRoute ? 3 : 1.5) * visualScale}
               x1={from.x}
               x2={to.x}
               y1={from.y}
               y2={to.y}
-            />
+            >
+              {edge.blocked && <title>Blocked by: {edge.blockReasons.join(', ')}</title>}
+            </line>
           );
         })}
       </g>

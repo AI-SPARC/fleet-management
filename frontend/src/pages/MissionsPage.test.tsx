@@ -25,6 +25,7 @@ describe('MissionsPage', () => {
       name: 'Lab',
       description: null,
       background: null,
+      obstacles: [],
       nodes: [
         { id: 'node-a', nodeKey: 'A', x: 0, y: 0, theta: 0, nodeType: 'waypoint' },
         { id: 'node-b', nodeKey: 'B', x: 1, y: 0, theta: 0, nodeType: 'waypoint' },
@@ -37,6 +38,8 @@ describe('MissionsPage', () => {
           toNodeKey: 'B',
           distance: 1,
           bidirectional: false,
+          blocked: false,
+          blockReasons: [],
         },
       ],
     });

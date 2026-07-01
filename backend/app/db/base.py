@@ -132,6 +132,19 @@ class MapEdge(Base):
     bidirectional: Mapped[bool] = mapped_column(default=False)
 
 
+class MapObstacle(Base):
+    __tablename__ = "map_obstacles"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    map_id: Mapped[str] = mapped_column(
+        ForeignKey("maps.id", ondelete="CASCADE"), nullable=False
+    )
+    name: Mapped[str] = mapped_column(String(160), nullable=False)
+    points: Mapped[list[dict[str, float]]] = mapped_column(json_type(), nullable=False)
+    safety_margin: Mapped[float] = mapped_column(Float, default=0.0)
+    active: Mapped[bool] = mapped_column(default=True)
+
+
 class Mission(Base):
     __tablename__ = "missions"
 

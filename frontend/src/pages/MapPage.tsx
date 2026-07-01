@@ -5,6 +5,7 @@ import { EdgeEditor } from '../components/map/EdgeEditor';
 import { MapBackgroundEditor } from '../components/map/MapBackgroundEditor';
 import { MapGraph } from '../components/map/MapGraph';
 import { NodeEditor } from '../components/map/NodeEditor';
+import { ObstacleEditor } from '../components/map/ObstacleEditor';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
@@ -13,6 +14,8 @@ import {
   useAddMapNode,
   useCalibrateMapBackground,
   useCreateMap,
+  useCreateMapObstacle,
+  useDeleteMapObstacle,
   useMap,
   useMaps,
   useRoutePreview,
@@ -25,6 +28,8 @@ export function MapPage() {
   const maps = useMaps();
   const [selectedMapId, setSelectedMapId] = useState<string>();
   const [draftNodePosition, setDraftNodePosition] = useState<MapPoint>();
+  const [drawingObstacle, setDrawingObstacle] = useState(false);
+  const [draftObstaclePoints, setDraftObstaclePoints] = useState<MapPoint[]>([]);
   const activeMapId = selectedMapId ?? maps.data?.[0]?.id;
   const map = useMap(activeMapId);
   const robots = useRobots();
@@ -36,6 +41,8 @@ export function MapPage() {
   const uploadBackground = useUploadMapBackground(activeMapId);
   const calibrateBackground = useCalibrateMapBackground(activeMapId);
   const updateNode = useUpdateMapNode(activeMapId);
+  const createObstacle = useCreateMapObstacle(activeMapId);
+  const deleteObstacle = useDeleteMapObstacle(activeMapId);
 
   const robotPositions = useMemo(
     () =>
@@ -74,23 +81,35 @@ export function MapPage() {
             onCalibrate={(input) => calibrateBackground.mutateAsync(input)}
             onUpload={(file) => uploadBackground.mutateAsync(file)}
           />
-          {(uploadBackground.isError || calibrateBackground.isError || updateNode.isError) && (
+          {(uploadBackground.isError ||
+            calibrateBackground.isError ||
+            updateNode.isError ||
+            createObstacle.isError ||
+            deleteObstacle.isError) && (
             <p className="m-0 text-sm text-red-700">
               {uploadBackground.error?.message ||
                 calibrateBackground.error?.message ||
-                updateNode.error?.message}
+                updateNode.error?.message ||
+                createObstacle.error?.message ||
+                deleteObstacle.error?.message}
             </p>
           )}
           <section className="grid grid-cols-[minmax(0,1fr)_280px] gap-4">
             <MapGraph
               highlightedNodeKeys={routePreview.data?.nodeKeys}
+              draftObstaclePoints={draftObstaclePoints}
               map={map.data}
-              onMapClick={(point) =>
-                setDraftNodePosition({
+              onMapClick={(point) => {
+                const roundedPoint = {
                   x: roundCoordinate(point.x),
                   y: roundCoordinate(point.y),
-                })
-              }
+                };
+                if (drawingObstacle) {
+                  setDraftObstaclePoints((current) => [...current, roundedPoint]);
+                } else {
+                  setDraftNodePosition(roundedPoint);
+                }
+              }}
               onNodeMove={(nodeKey, position) =>
                 updateNode.mutate({
                   nodeKey,
@@ -121,6 +140,35 @@ export function MapPage() {
                   }}
                 />
                 <EdgeEditor disabled={addEdge.isPending} nodes={map.data.nodes} onSubmit={(input) => addEdge.mutateAsync(input)} />
+                <ObstacleEditor
+                  canDraw={Boolean(map.data.background?.calibration)}
+                  disabled={createObstacle.isPending || deleteObstacle.isPending}
+                  draftPoints={draftObstaclePoints}
+                  drawing={drawingObstacle}
+                  obstacles={map.data.obstacles}
+                  onCancel={() => {
+                    setDrawingObstacle(false);
+                    setDraftObstaclePoints([]);
+                  }}
+                  onDelete={(obstacleId) => deleteObstacle.mutate(obstacleId)}
+                  onSave={async (name, safetyMargin) => {
+                    await createObstacle.mutateAsync({
+                      name,
+                      safetyMargin,
+                      points: draftObstaclePoints,
+                    });
+                    setDrawingObstacle(false);
+                    setDraftObstaclePoints([]);
+                  }}
+                  onStart={() => {
+                    setDraftNodePosition(undefined);
+                    setDraftObstaclePoints([]);
+                    setDrawingObstacle(true);
+                  }}
+                  onUndo={() =>
+                    setDraftObstaclePoints((current) => current.slice(0, -1))
+                  }
+                />
               </CardContent>
             </Card>
           </section>

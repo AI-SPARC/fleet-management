@@ -107,11 +107,16 @@ PUT  /api/v1/maps/{map_id}/background
 GET  /api/v1/maps/{map_id}/background/content
 PUT  /api/v1/maps/{map_id}/background/calibration
 DELETE /api/v1/maps/{map_id}/background
+POST /api/v1/maps/{map_id}/obstacles
+DELETE /api/v1/maps/{map_id}/obstacles/{obstacle_id}
 ```
 
 Background upload accepts raw PNG/JPEG bytes and a `filename` query parameter. Calibration accepts
 two pixel points and their corresponding metric world points. Map details return the derived
 meters-per-pixel, image origin, and rotation used by the frontend overlay.
+
+Obstacle polygons use metric map coordinates. Route planning excludes an edge when its segment,
+buffered by the configured robot radius and the obstacle safety margin, intersects that polygon.
 
 Map detail returns the complete node and edge graph used by the operator editor. Nodes carry
 Cartesian position and orientation; edges carry direction, distance, and bidirectional metadata.

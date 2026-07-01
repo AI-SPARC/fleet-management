@@ -52,6 +52,8 @@ export type MapEdge = {
   toNodeKey: string;
   distance: number;
   bidirectional: boolean;
+  blocked: boolean;
+  blockReasons: string[];
 };
 
 export type MapPoint = { x: number; y: number };
@@ -79,10 +81,21 @@ export type MapCalibrationInput = {
   worldPointB: MapPoint;
 };
 
+export type MapObstacle = {
+  id: string;
+  name: string;
+  points: MapPoint[];
+  safetyMargin: number;
+  active: boolean;
+};
+
+export type MapObstacleInput = Pick<MapObstacle, 'name' | 'points' | 'safetyMargin'>;
+
 export type FleetMapDetail = FleetMap & {
   nodes: MapNode[];
   edges: MapEdge[];
   background: MapBackground | null;
+  obstacles: MapObstacle[];
 };
 
 export type MapNodeInput = Pick<MapNode, 'nodeKey' | 'x' | 'y' | 'theta'>;
@@ -183,6 +196,7 @@ export function createApiClient(baseUrl: string) {
       const details = await readResponseBody(response);
       throw new ApiError(errorMessage(details, response.status), response.status, details);
     }
+    if (response.status === 204) return undefined as T;
     return (await response.json()) as T;
   }
 
@@ -227,6 +241,17 @@ export function createApiClient(baseUrl: string) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(input),
       }),
+    createMapObstacle: (mapId: string, input: MapObstacleInput) =>
+      request<MapObstacle>(`/maps/${encodeURIComponent(mapId)}/obstacles`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(input),
+      }),
+    deleteMapObstacle: (mapId: string, obstacleId: string) =>
+      request<void>(
+        `/maps/${encodeURIComponent(mapId)}/obstacles/${encodeURIComponent(obstacleId)}`,
+        { method: 'DELETE' },
+      ),
     addMapNode: (mapId: string, input: MapNodeInput) =>
       request<{ id: string; nodeKey: string }>(`/maps/${encodeURIComponent(mapId)}/nodes`, {
         method: 'POST',

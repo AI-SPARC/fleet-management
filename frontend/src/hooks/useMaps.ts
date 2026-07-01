@@ -6,6 +6,7 @@ import {
   type MapEdgeInput,
   type MapNodeInput,
   type MapNodePositionInput,
+  type MapObstacleInput,
 } from '../api/client';
 import { queryKeys } from '../api/queryKeys';
 
@@ -74,6 +75,26 @@ export function useCalibrateMapBackground(mapId: string | undefined) {
   return useMutation({
     mutationFn: (input: MapCalibrationInput) =>
       apiClient.calibrateMapBackground(mapId as string, input),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: queryKeys.maps.detail(mapId ?? '') }),
+  });
+}
+
+export function useCreateMapObstacle(mapId: string | undefined) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: MapObstacleInput) =>
+      apiClient.createMapObstacle(mapId as string, input),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: queryKeys.maps.detail(mapId ?? '') }),
+  });
+}
+
+export function useDeleteMapObstacle(mapId: string | undefined) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (obstacleId: string) =>
+      apiClient.deleteMapObstacle(mapId as string, obstacleId),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: queryKeys.maps.detail(mapId ?? '') }),
   });

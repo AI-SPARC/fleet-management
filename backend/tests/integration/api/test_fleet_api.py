@@ -147,6 +147,8 @@ async def test_create_map_with_nodes_and_route_preview(context: ApiTestContext) 
         "toNodeKey": "B",
         "distance": 1.0,
         "bidirectional": False,
+        "blocked": False,
+        "blockReasons": [],
     }
 
 
@@ -245,6 +247,54 @@ async def test_update_map_node_position(context: ApiTestContext) -> None:
     assert response.json()["x"] == 2.5
     assert response.json()["y"] == 3.5
     assert response.json()["theta"] == 0.5
+
+
+async def test_obstacle_blocks_intersecting_route(context: ApiTestContext) -> None:
+    map_response = await context.client.post("/api/v1/maps", json={"name": "Obstacle map"})
+    map_id = map_response.json()["id"]
+    for node_key, x in (("A", 0), ("B", 10)):
+        await context.client.post(
+            f"/api/v1/maps/{map_id}/nodes",
+            json={"nodeKey": node_key, "x": x, "y": 0},
+        )
+    await context.client.post(
+        f"/api/v1/maps/{map_id}/edges",
+        json={"edgeKey": "A-B", "fromNodeKey": "A", "toNodeKey": "B", "distance": 10},
+    )
+
+    obstacle = await context.client.post(
+        f"/api/v1/maps/{map_id}/obstacles",
+        json={
+            "name": "Pallet",
+            "points": [
+                {"x": 4, "y": -1},
+                {"x": 6, "y": -1},
+                {"x": 6, "y": 1},
+                {"x": 4, "y": 1},
+            ],
+            "safetyMargin": 0.1,
+        },
+    )
+    detail = await context.client.get(f"/api/v1/maps/{map_id}")
+    blocked_route = await context.client.post(
+        f"/api/v1/maps/{map_id}/route-preview",
+        json={"startNodeKey": "A", "goalNodeKey": "B"},
+    )
+
+    assert obstacle.status_code == 201
+    assert detail.json()["edges"][0]["blocked"] is True
+    assert detail.json()["edges"][0]["blockReasons"] == ["Pallet"]
+    assert blocked_route.status_code == 404
+
+    deleted = await context.client.delete(
+        f"/api/v1/maps/{map_id}/obstacles/{obstacle.json()['id']}"
+    )
+    available_route = await context.client.post(
+        f"/api/v1/maps/{map_id}/route-preview",
+        json={"startNodeKey": "A", "goalNodeKey": "B"},
+    )
+    assert deleted.status_code == 204
+    assert available_route.status_code == 200
 
 
 async def test_create_mission(context: ApiTestContext) -> None:

@@ -23,6 +23,7 @@ describe('map graph workspace', () => {
           name: 'Lab',
           description: null,
           background: null,
+          obstacles: [],
           nodes,
           edges: [
             {
@@ -32,6 +33,8 @@ describe('map graph workspace', () => {
               toNodeKey: 'B',
               distance: 5.4,
               bidirectional: false,
+              blocked: false,
+              blockReasons: [],
             },
           ],
         }}
@@ -108,6 +111,7 @@ describe('map graph workspace', () => {
               rotationDegrees: 0,
             },
           },
+          obstacles: [],
         }}
         robots={[]}
       />,
@@ -155,6 +159,7 @@ describe('map graph workspace', () => {
               rotationDegrees: 0,
             },
           },
+          obstacles: [],
         }}
         onMapClick={selectPoint}
         onNodeMove={moveNode}
@@ -213,5 +218,50 @@ describe('map graph workspace', () => {
       worldPointA: { x: 0, y: 0 },
       worldPointB: { x: 10, y: 0 },
     });
+  });
+
+  it('renders obstacle polygons and marks blocked edges', () => {
+    const { container } = render(
+      <MapGraph
+        map={{
+          id: 'map-1',
+          name: 'Blocked lab',
+          description: null,
+          background: null,
+          nodes,
+          obstacles: [
+            {
+              id: 'obstacle-1',
+              name: 'Pallet',
+              points: [
+                { x: 2, y: 0 },
+                { x: 3, y: 0 },
+                { x: 3, y: 1 },
+                { x: 2, y: 1 },
+              ],
+              safetyMargin: 0.1,
+              active: true,
+            },
+          ],
+          edges: [
+            {
+              id: 'edge-a-b',
+              edgeKey: 'A-B',
+              fromNodeKey: 'A',
+              toNodeKey: 'B',
+              distance: 5.4,
+              bidirectional: false,
+              blocked: true,
+              blockReasons: ['Pallet'],
+            },
+          ],
+        }}
+        robots={[]}
+      />,
+    );
+
+    expect(container.querySelector('[data-obstacle-id="obstacle-1"]')).toBeInTheDocument();
+    expect(container.querySelector('[data-edge-key="A-B"]')).toHaveAttribute('stroke', '#dc2626');
+    expect(screen.getByText('Blocked by: Pallet')).toBeInTheDocument();
   });
 });

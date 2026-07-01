@@ -12,14 +12,18 @@ from app.api.v1.schemas import (
     MapDetailRead,
     MapEdgeRead,
     MapNodeRead,
+    MapObstacleCreate,
+    MapObstacleRead,
     MapRead,
     NodeCreate,
     NodeUpdate,
     RoutePreviewRead,
     RoutePreviewRequest,
 )
-from app.db.base import MapBackground, MapEdge, MapLayout, MapNode
+from app.db.base import MapBackground, MapEdge, MapLayout, MapNode, MapObstacle
 from app.services.map_background_service import MapBackgroundService, Point
+from app.services.map_obstacle_service import MapObstacleService
+from app.services.map_obstacle_service import Point as ObstaclePoint
 from app.services.map_service import MapService
 
 router = APIRouter(prefix="/maps", tags=["maps"])
@@ -56,13 +60,37 @@ async def get_map(map_id: str, session: SessionDep) -> MapDetailRead:
         ).scalars()
     )
     background = await session.get(MapBackground, map_id)
+    obstacles = list(
+        (
+            await session.execute(
+                select(MapObstacle).where(MapObstacle.map_id == map_id).order_by(MapObstacle.name)
+            )
+        ).scalars()
+    )
+    block_reasons = await MapObstacleService(session).block_reasons(nodes, edges, obstacles)
     return MapDetailRead(
         id=layout.id,
         name=layout.name,
         description=layout.description,
         nodes=[MapNodeRead.model_validate(node, from_attributes=True) for node in nodes],
-        edges=[MapEdgeRead.model_validate(edge, from_attributes=True) for edge in edges],
+        edges=[
+            MapEdgeRead(
+                id=edge.id,
+                edge_key=edge.edge_key,
+                from_node_key=edge.from_node_key,
+                to_node_key=edge.to_node_key,
+                distance=edge.distance,
+                bidirectional=edge.bidirectional,
+                blocked=edge.edge_key in block_reasons,
+                block_reasons=block_reasons.get(edge.edge_key, []),
+            )
+            for edge in edges
+        ],
         background=_background_read(background) if background is not None else None,
+        obstacles=[
+            MapObstacleRead.model_validate(obstacle, from_attributes=True)
+            for obstacle in obstacles
+        ],
     )
 
 
@@ -136,6 +164,39 @@ async def delete_map_background(map_id: str, session: SessionDep) -> Response:
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
+@router.post(
+    "/{map_id}/obstacles",
+    response_model=MapObstacleRead,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_map_obstacle(
+    map_id: str, payload: MapObstacleCreate, session: SessionDep
+) -> MapObstacleRead:
+    try:
+        obstacle = await MapObstacleService(session).create(
+            map_id,
+            payload.name,
+            [ObstaclePoint(point.x, point.y) for point in payload.points],
+            payload.safety_margin,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=_map_error_status(exc), detail=str(exc)) from exc
+    return MapObstacleRead.model_validate(obstacle, from_attributes=True)
+
+
+@router.delete(
+    "/{map_id}/obstacles/{obstacle_id}", status_code=status.HTTP_204_NO_CONTENT
+)
+async def delete_map_obstacle(
+    map_id: str, obstacle_id: str, session: SessionDep
+) -> Response:
+    try:
+        await MapObstacleService(session).delete(map_id, obstacle_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=_map_error_status(exc), detail=str(exc)) from exc
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
 @router.post("/{map_id}/nodes", status_code=status.HTTP_201_CREATED)
 async def add_node(map_id: str, payload: NodeCreate, session: SessionDep) -> dict[str, str]:
     try:
@@ -193,7 +254,12 @@ async def route_preview(
 
 
 def _map_error_status(exc: ValueError) -> int:
-    if str(exc) in {"Map not found", "Map background not found", "Map node not found"}:
+    if str(exc) in {
+        "Map not found",
+        "Map background not found",
+        "Map node not found",
+        "Map obstacle not found",
+    }:
         return status.HTTP_404_NOT_FOUND
     return status.HTTP_422_UNPROCESSABLE_CONTENT
 

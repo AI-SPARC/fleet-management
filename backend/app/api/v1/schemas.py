@@ -79,6 +79,27 @@ class MapEdgeRead(BaseModel):
     to_node_key: str = Field(serialization_alias="toNodeKey")
     distance: float
     bidirectional: bool
+    blocked: bool = False
+    block_reasons: list[str] = Field(default_factory=list, serialization_alias="blockReasons")
+
+
+class CalibrationPoint(BaseModel):
+    x: float
+    y: float
+
+
+class MapObstacleCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=160)
+    points: list[CalibrationPoint] = Field(min_length=3)
+    safety_margin: float = Field(default=0.0, alias="safetyMargin", ge=0)
+
+
+class MapObstacleRead(BaseModel):
+    id: str
+    name: str
+    points: list[CalibrationPoint]
+    safety_margin: float = Field(serialization_alias="safetyMargin")
+    active: bool
 
 
 class MapCalibrationRead(BaseModel):
@@ -101,11 +122,7 @@ class MapDetailRead(MapRead):
     nodes: list[MapNodeRead]
     edges: list[MapEdgeRead]
     background: MapBackgroundRead | None = None
-
-
-class CalibrationPoint(BaseModel):
-    x: float
-    y: float
+    obstacles: list[MapObstacleRead] = Field(default_factory=list)
 
 
 class MapCalibrationUpdate(BaseModel):
