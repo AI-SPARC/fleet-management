@@ -10,6 +10,29 @@ export function useMissions() {
   });
 }
 
+export function useMission(missionId: string | undefined) {
+  return useQuery({
+    queryKey: queryKeys.missions.detail(missionId ?? ''),
+    queryFn: () => apiClient.getMission(missionId as string),
+    enabled: Boolean(missionId),
+  });
+}
+
+export function useMissionRoute(
+  missionId: string | undefined,
+  mapId: string | null | undefined,
+  startNodeKey: string | undefined,
+  goalNodeKey: string | undefined,
+) {
+  return useQuery({
+    queryKey: queryKeys.missions.route(missionId ?? ''),
+    queryFn: () =>
+      apiClient.previewRoute(mapId as string, startNodeKey as string, goalNodeKey as string),
+    enabled: Boolean(missionId && mapId && startNodeKey && goalNodeKey),
+    retry: false,
+  });
+}
+
 export function useCreateMission() {
   const queryClient = useQueryClient();
   return useMutation({

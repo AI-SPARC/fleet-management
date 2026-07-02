@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from '@tanstack/react-router';
 
 import type { MissionDispatchResponse } from '../api/client';
 import { OrderPreview } from '../components/missions/OrderPreview';
@@ -76,7 +77,14 @@ function MissionList({
                     <td className="px-4 py-3"><strong>{mission.startNodeKey} → {mission.goalNodeKey}</strong><span className="block max-w-48 truncate font-mono text-[0.68rem] text-muted-foreground">{mission.id}</span></td>
                     <td className="px-4 py-3"><Badge variant={mission.status === 'sent' ? 'default' : 'outline'}>{mission.status}</Badge></td>
                     <td className="px-4 py-3">{mission.priority}</td>
-                    <td className="px-4 py-3 text-right"><Button disabled={dispatching || mission.status !== 'assigned'} onClick={() => void onDispatch(mission.id)} size="sm" variant="outline">Dispatch</Button></td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button asChild size="sm" variant="ghost">
+                          <Link params={{ missionId: mission.id }} to="/missions/$missionId/live">Monitor</Link>
+                        </Button>
+                        <Button disabled={dispatching || mission.status !== 'assigned'} onClick={() => void onDispatch(mission.id)} size="sm" variant="outline">Dispatch</Button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>

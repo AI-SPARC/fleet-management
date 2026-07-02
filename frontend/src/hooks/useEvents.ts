@@ -20,7 +20,13 @@ export function applyDomainEvent(queryClient: QueryClient, event: DomainEvent) {
   if (event.type === 'robot.state.updated' && event.robotId) {
     queryClient.setQueryData<RobotState>(
       queryKeys.robots.state(event.robotId),
-      event.payload,
+      {
+        ...event.payload,
+        agvPosition: asRecord(
+          event.payload.agvPosition ?? event.payload.mobileRobotPosition,
+        ),
+        receivedAt: event.timestamp,
+      },
     );
   }
   if (event.type.startsWith('robot.')) {
@@ -32,6 +38,12 @@ export function applyDomainEvent(queryClient: QueryClient, event: DomainEvent) {
   if (event.type.startsWith('mqtt.') || event.type === 'vda.validation.failed') {
     void queryClient.invalidateQueries({ queryKey: queryKeys.mqtt.all });
   }
+}
+
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+  return typeof value === 'object' && value !== null
+    ? (value as Record<string, unknown>)
+    : undefined;
 }
 
 export function useEvents({ enabled = true, url = EVENTS_URL, reconnectMs = 2_000 } = {}) {

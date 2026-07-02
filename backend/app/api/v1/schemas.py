@@ -36,6 +36,7 @@ class RobotStateRead(BaseModel):
     edge_states: list[dict[str, Any]] | None = Field(serialization_alias="edgeStates")
     action_states: list[dict[str, Any]] | None = Field(serialization_alias="actionStates")
     raw_payload: dict[str, Any] = Field(serialization_alias="rawPayload")
+    received_at: datetime = Field(serialization_alias="receivedAt")
 
 
 class InstantActionCreate(BaseModel):

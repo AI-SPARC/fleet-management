@@ -27,6 +27,7 @@ export type RobotState = {
   safetyState?: Record<string, unknown> | null;
   agvPosition?: Record<string, unknown> | null;
   rawPayload?: Record<string, unknown>;
+  receivedAt?: string;
   [key: string]: unknown;
 };
 
@@ -280,6 +281,8 @@ export function createApiClient(baseUrl: string) {
         body: JSON.stringify({ startNodeKey, goalNodeKey }),
       }),
     listMissions: () => request<Mission[]>('/missions'),
+    getMission: (missionId: string) =>
+      request<Mission>(`/missions/${encodeURIComponent(missionId)}`),
     createMission: (input: MissionInput) =>
       request<Mission>('/missions', {
         method: 'POST',

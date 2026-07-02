@@ -322,6 +322,11 @@ async def test_create_mission(context: ApiTestContext) -> None:
 
     assert mission_response.status_code == 201
     assert mission_response.json()["status"] == "assigned"
+    detail_response = await context.client.get(
+        f"/api/v1/missions/{mission_response.json()['id']}"
+    )
+    assert detail_response.status_code == 200
+    assert detail_response.json() == mission_response.json()
     assert mission_response.json()["mapId"] == map_id
 
 

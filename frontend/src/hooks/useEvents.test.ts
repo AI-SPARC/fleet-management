@@ -14,13 +14,20 @@ describe('domain event cache synchronization', () => {
       type: 'robot.state.updated',
       timestamp: '2026-06-29T20:00:00.000Z',
       robotId: 'robot-1',
-      payload: { headerId: 10, batteryCharge: 75 },
+      payload: {
+        headerId: 10,
+        batteryCharge: 75,
+        mobileRobotPosition: { x: 2, y: 3, mapId: 'lab' },
+      },
     });
     await Promise.resolve();
 
     expect(queryClient.getQueryData(queryKeys.robots.state('robot-1'))).toEqual({
       headerId: 10,
       batteryCharge: 75,
+      mobileRobotPosition: { x: 2, y: 3, mapId: 'lab' },
+      agvPosition: { x: 2, y: 3, mapId: 'lab' },
+      receivedAt: '2026-06-29T20:00:00.000Z',
     });
     expect(queryClient.getQueryState(queryKeys.robots.all)?.isInvalidated).toBe(true);
   });

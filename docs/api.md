@@ -8,6 +8,7 @@ Create an assigned mission on an existing graph map:
 
 ```http
 POST /api/v1/missions
+GET /api/v1/missions/{mission_id}
 Content-Type: application/json
 
 {
