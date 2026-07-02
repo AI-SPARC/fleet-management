@@ -1,7 +1,7 @@
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from app.db.base import Base
+from app.db.base import Base, Mission
 from app.services.robot_registry import RobotRegistryService
 
 
@@ -67,7 +67,13 @@ async def test_save_state_snapshot_and_read_latest_state(session: AsyncSession) 
         "operatingMode": "AUTOMATIC",
         "errors": [],
         "safetyState": {"eStop": "NONE", "fieldViolation": False},
-        "agvPosition": {"x": 1.0, "y": 2.0, "theta": 0.0, "mapId": "lab"},
+        "mobileRobotPosition": {
+            "x": 1.0,
+            "y": 2.0,
+            "theta": 0.0,
+            "mapId": "lab",
+            "localized": True,
+        },
         "nodeStates": [],
         "edgeStates": [],
         "actionStates": [],
@@ -80,4 +86,48 @@ async def test_save_state_snapshot_and_read_latest_state(session: AsyncSession) 
     assert latest is not None
     assert latest.id == snapshot.id
     assert latest.battery_charge == 87.5
+    assert latest.agv_position == payload["mobileRobotPosition"]
     assert latest.raw_payload == payload
+
+
+async def test_robot_state_reconciles_mission_progress(session: AsyncSession) -> None:
+    service = RobotRegistryService(session)
+    robot = await service.get_or_create("ResearchBot", "RB005")
+    mission = Mission(
+        id="mission-live",
+        assigned_robot_id=robot.id,
+        start_node_key="A",
+        goal_node_key="B",
+        status="sent",
+        priority=0,
+    )
+    session.add(mission)
+    await session.commit()
+
+    await service.save_state_snapshot(
+        robot.id,
+        {
+            "orderId": mission.id,
+            "lastNodeId": "A",
+            "nodeStates": [{"nodeId": "B"}],
+            "edgeStates": [],
+            "actionStates": [],
+            "driving": True,
+            "errors": [],
+        },
+    )
+    assert mission.status == "running"
+
+    await service.save_state_snapshot(
+        robot.id,
+        {
+            "orderId": mission.id,
+            "lastNodeId": "B",
+            "nodeStates": [],
+            "edgeStates": [],
+            "actionStates": [],
+            "driving": False,
+            "errors": [],
+        },
+    )
+    assert mission.status == "completed"
