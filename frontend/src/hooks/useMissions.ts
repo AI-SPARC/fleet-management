@@ -33,6 +33,14 @@ export function useMissionRoute(
   });
 }
 
+export function useMissionTrajectory(missionId: string | undefined) {
+  return useQuery({
+    queryKey: queryKeys.missions.trajectory(missionId ?? ''),
+    queryFn: () => apiClient.getMissionTrajectory(missionId as string),
+    enabled: Boolean(missionId),
+  });
+}
+
 export function useCreateMission() {
   const queryClient = useQueryClient();
   return useMutation({

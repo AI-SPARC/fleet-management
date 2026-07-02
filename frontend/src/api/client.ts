@@ -124,6 +124,16 @@ export type MissionInput = {
   priority: number;
 };
 
+export type MissionTrajectoryPoint = {
+  timestamp: string;
+  x: number;
+  y: number;
+  theta: number;
+  mapId: string;
+  lastNodeId: string | null;
+  batteryCharge: number | null;
+};
+
 export type MissionDispatchResponse = {
   accepted: boolean;
   topic: string;
@@ -283,6 +293,10 @@ export function createApiClient(baseUrl: string) {
     listMissions: () => request<Mission[]>('/missions'),
     getMission: (missionId: string) =>
       request<Mission>(`/missions/${encodeURIComponent(missionId)}`),
+    getMissionTrajectory: (missionId: string) =>
+      request<MissionTrajectoryPoint[]>(
+        `/missions/${encodeURIComponent(missionId)}/trajectory`,
+      ),
     createMission: (input: MissionInput) =>
       request<Mission>('/missions', {
         method: 'POST',

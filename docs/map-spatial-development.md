@@ -12,6 +12,8 @@ coordinates independent from screen pixels.
 
 ## Delivery phases
 
+All six phases below are implemented on the map-improvement branch.
+
 1. **Calibrated image overlay:** upload and validate a background, calibrate with two point pairs,
    and render graph nodes, edges, and robot positions over it.
 2. **Spatial graph editing:** convert pointer positions back to meters, create and move nodes on
@@ -29,3 +31,15 @@ Static map obstacles and dynamic runtime blocks remain separate. A floor-plan im
 treated as an occupancy map automatically; automatic extraction may later suggest geometry, but
 an operator must confirm it. Immediate collision avoidance remains the robot's local planner
 responsibility.
+
+## Operational limits
+
+- Replay uses discrete VDA 5050 state samples and does not interpolate positions between messages.
+- A trajectory includes only snapshots whose `orderId` matches the mission and whose position is
+  valid and map-aware.
+- Static obstacle clearance currently uses the configured default robot radius plus each polygon's
+  safety margin; robot-specific geometry is a future planning-context input.
+- Raster backgrounds are stored in PostgreSQL for a self-contained deployment and are limited by
+  configured byte and pixel caps.
+- Uploaded floor plans remain visual references. They are not automatically treated as occupancy
+  grids, and dynamic collision avoidance remains the mobile robot's responsibility.

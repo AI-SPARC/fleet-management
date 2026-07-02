@@ -181,6 +181,16 @@ class MissionRead(BaseModel):
     priority: int
 
 
+class MissionTrajectoryPointRead(BaseModel):
+    timestamp: datetime
+    x: float
+    y: float
+    theta: float
+    map_id: str = Field(serialization_alias="mapId")
+    last_node_id: str | None = Field(serialization_alias="lastNodeId")
+    battery_charge: float | None = Field(serialization_alias="batteryCharge")
+
+
 class MissionDispatchRead(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 

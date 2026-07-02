@@ -159,6 +159,26 @@ describe('MissionsPage', () => {
       rawPayload: {},
     });
     vi.spyOn(apiClient, 'previewRoute').mockResolvedValue({ nodeKeys: ['A', 'B'] });
+    vi.spyOn(apiClient, 'getMissionTrajectory').mockResolvedValue([
+      {
+        timestamp: '2026-07-02T12:00:00Z',
+        x: 0,
+        y: 0,
+        theta: 0,
+        mapId: 'map-1',
+        lastNodeId: 'A',
+        batteryCharge: 73,
+      },
+      {
+        timestamp: '2026-07-02T12:00:05Z',
+        x: 1,
+        y: 0,
+        theta: 0,
+        mapId: 'map-1',
+        lastNodeId: 'B',
+        batteryCharge: 72,
+      },
+    ]);
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const router = createRouter({
       routeTree,
@@ -175,5 +195,9 @@ describe('MissionsPage', () => {
     expect(screen.getByText('Live')).toBeInTheDocument();
     expect(screen.getByText('2 of 2 nodes reached')).toBeInTheDocument();
     expect(screen.getByText('0 active errors')).toBeInTheDocument();
+    expect(await screen.findByText('2 position samples')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Start replay' }));
+    expect(screen.getByText('Replay')).toBeInTheDocument();
+    expect(screen.getByText('1 of 2 nodes reached')).toBeInTheDocument();
   });
 });

@@ -8,7 +8,6 @@ Create an assigned mission on an existing graph map:
 
 ```http
 POST /api/v1/missions
-GET /api/v1/missions/{mission_id}
 Content-Type: application/json
 
 {
@@ -19,6 +18,16 @@ Content-Type: application/json
   "priority": 0
 }
 ```
+
+Read mission state and its persisted trajectory:
+
+```http
+GET /api/v1/missions/{mission_id}
+GET /api/v1/missions/{mission_id}/trajectory
+```
+
+Mission trajectory returns timestamped metric positions extracted from persisted VDA 5050 states
+whose `orderId` matches the mission. Invalid or positionless samples are omitted.
 
 Both nodes must exist on the selected map. A mission created with a robot starts as
 `assigned`; without a robot it starts as `queued`.

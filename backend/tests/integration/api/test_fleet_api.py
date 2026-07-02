@@ -1,5 +1,6 @@
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from io import BytesIO
 
 import pytest
@@ -8,7 +9,7 @@ from PIL import Image
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.api.deps import get_session
-from app.db.base import Base
+from app.db.base import Base, RobotStateSnapshot
 from app.main import app
 from app.mqtt.outbound import RecordingMqttPublisher, get_mqtt_publisher
 from app.services.robot_registry import RobotRegistryService
@@ -327,6 +328,30 @@ async def test_create_mission(context: ApiTestContext) -> None:
     )
     assert detail_response.status_code == 200
     assert detail_response.json() == mission_response.json()
+
+    async with context.maker() as session:
+        session.add_all(
+            [
+                RobotStateSnapshot(
+                    robot_id=robot_response.json()["id"],
+                    order_id=mission_response.json()["id"],
+                    last_node_id=node_id,
+                    battery_charge=charge,
+                    agv_position={"x": x, "y": 0, "theta": 0, "mapId": map_id},
+                    raw_payload={},
+                    received_at=datetime(2026, 7, 2, 12, minute, tzinfo=UTC),
+                )
+                for minute, node_id, x, charge in ((0, "A", 0, 80), (1, "B", 1, 79))
+            ]
+        )
+        await session.commit()
+
+    trajectory = await context.client.get(
+        f"/api/v1/missions/{mission_response.json()['id']}/trajectory"
+    )
+    assert trajectory.status_code == 200
+    assert [point["lastNodeId"] for point in trajectory.json()] == ["A", "B"]
+    assert trajectory.json()[1]["x"] == 1.0
     assert mission_response.json()["mapId"] == map_id
 
 
