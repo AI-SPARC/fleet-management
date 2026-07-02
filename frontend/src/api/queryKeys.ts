@@ -12,6 +12,9 @@ export const queryKeys = {
   },
   missions: {
     all: ['missions'] as const,
+    detail: (missionId: string) => ['missions', missionId] as const,
+    route: (missionId: string) => ['missions', missionId, 'route'] as const,
+    trajectory: (missionId: string) => ['missions', missionId, 'trajectory'] as const,
   },
   mqtt: {
     all: ['mqtt-messages'] as const,

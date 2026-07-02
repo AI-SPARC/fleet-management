@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.base import Robot, RobotStateSnapshot
 from app.services.event_bus import EventBus, get_event_bus
+from app.services.mission_status_service import MissionStatusService
 
 
 class RobotRegistryService:
@@ -86,7 +87,7 @@ class RobotRegistryService:
             operating_mode=payload.get("operatingMode"),
             errors=payload.get("errors"),
             safety_state=payload.get("safetyState"),
-            agv_position=payload.get("agvPosition"),
+            agv_position=payload.get("mobileRobotPosition") or payload.get("agvPosition"),
             node_states=payload.get("nodeStates"),
             edge_states=payload.get("edgeStates"),
             action_states=payload.get("actionStates"),
@@ -96,6 +97,7 @@ class RobotRegistryService:
         self.session.add(snapshot)
         await self.session.commit()
         await self.session.refresh(snapshot)
+        await MissionStatusService(self.session, self.event_bus).reconcile(robot.id, payload)
         self.event_bus.publish("robot.state.updated", robot_id=robot.id, payload=payload)
         return snapshot
 

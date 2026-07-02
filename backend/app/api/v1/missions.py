@@ -4,8 +4,13 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 
 from app.api.deps import EventBusDep, SessionDep
-from app.api.v1.schemas import MissionCreate, MissionDispatchRead, MissionRead
-from app.db.base import Mission
+from app.api.v1.schemas import (
+    MissionCreate,
+    MissionDispatchRead,
+    MissionRead,
+    MissionTrajectoryPointRead,
+)
+from app.db.base import Mission, RobotStateSnapshot
 from app.mqtt.outbound import MqttPublisher, get_mqtt_publisher
 from app.services.mission_dispatch import MissionDispatchService
 from app.services.mission_service import MissionService
@@ -18,6 +23,66 @@ PublisherDep = Annotated[MqttPublisher, Depends(get_mqtt_publisher)]
 async def list_missions(session: SessionDep) -> list[Mission]:
     result = await session.execute(select(Mission).order_by(Mission.created_at))
     return list(result.scalars())
+
+
+@router.get("/{mission_id}", response_model=MissionRead)
+async def get_mission(mission_id: str, session: SessionDep) -> Mission:
+    mission = await session.get(Mission, mission_id)
+    if mission is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Mission not found")
+    return mission
+
+
+@router.get("/{mission_id}/trajectory", response_model=list[MissionTrajectoryPointRead])
+async def get_mission_trajectory(
+    mission_id: str, session: SessionDep
+) -> list[MissionTrajectoryPointRead]:
+    mission = await session.get(Mission, mission_id)
+    if mission is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Mission not found")
+    if mission.assigned_robot_id is None:
+        return []
+    snapshots = list(
+        (
+            await session.execute(
+                select(RobotStateSnapshot)
+                .where(
+                    RobotStateSnapshot.robot_id == mission.assigned_robot_id,
+                    RobotStateSnapshot.order_id == mission.id,
+                )
+                .order_by(RobotStateSnapshot.received_at, RobotStateSnapshot.id)
+            )
+        ).scalars()
+    )
+    trajectory: list[MissionTrajectoryPointRead] = []
+    for snapshot in snapshots:
+        position = snapshot.agv_position
+        if not isinstance(position, dict):
+            continue
+        x = position.get("x")
+        y = position.get("y")
+        theta = position.get("theta", 0.0)
+        map_id = position.get("mapId")
+        if not isinstance(x, (int, float)):
+            continue
+        if not isinstance(y, (int, float)):
+            continue
+        if not isinstance(theta, (int, float)):
+            continue
+        if not isinstance(map_id, str):
+            continue
+        trajectory.append(
+            MissionTrajectoryPointRead(
+                timestamp=snapshot.received_at,
+                x=float(x),
+                y=float(y),
+                theta=float(theta),
+                map_id=map_id,
+                last_node_id=snapshot.last_node_id,
+                battery_charge=snapshot.battery_charge,
+            )
+        )
+    return trajectory
 
 
 @router.post("", response_model=MissionRead, status_code=status.HTTP_201_CREATED)

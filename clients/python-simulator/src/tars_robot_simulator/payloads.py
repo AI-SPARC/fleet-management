@@ -41,8 +41,12 @@ def build_state_payload(
     last_node_id: str = "",
     last_node_sequence_id: int = 0,
     driving: bool = False,
+    node_states: list[dict] | None = None,
+    edge_states: list[dict] | None = None,
+    mobile_robot_position: dict | None = None,
+    instant_action_states: list[dict] | None = None,
 ) -> dict:
-    return {
+    payload = {
         "headerId": header_id,
         "timestamp": utc_timestamp(),
         "version": "3.0.0",
@@ -52,16 +56,19 @@ def build_state_payload(
         "orderUpdateId": order_update_id,
         "lastNodeId": last_node_id,
         "lastNodeSequenceId": last_node_sequence_id,
-        "nodeStates": [],
-        "edgeStates": [],
+        "nodeStates": node_states or [],
+        "edgeStates": edge_states or [],
         "driving": driving,
         "actionStates": [],
-        "instantActionStates": [],
+        "instantActionStates": instant_action_states or [],
         "powerSupply": {"stateOfCharge": state_of_charge, "charging": False},
         "operatingMode": "AUTOMATIC",
         "errors": [],
         "safetyState": {"activeEmergencyStop": "NONE", "fieldViolation": False},
     }
+    if mobile_robot_position is not None:
+        payload["mobileRobotPosition"] = mobile_robot_position
+    return payload
 
 
 def build_factsheet_payload(identity: RobotIdentity, *, header_id: int) -> dict:

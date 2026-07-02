@@ -27,6 +27,7 @@ export type RobotState = {
   safetyState?: Record<string, unknown> | null;
   agvPosition?: Record<string, unknown> | null;
   rawPayload?: Record<string, unknown>;
+  receivedAt?: string;
   [key: string]: unknown;
 };
 
@@ -52,14 +53,54 @@ export type MapEdge = {
   toNodeKey: string;
   distance: number;
   bidirectional: boolean;
+  blocked: boolean;
+  blockReasons: string[];
 };
+
+export type MapPoint = { x: number; y: number };
+
+export type MapCalibration = {
+  metersPerPixel: number;
+  originPixelX: number;
+  originPixelY: number;
+  rotationDegrees: number;
+};
+
+export type MapBackground = {
+  filename: string;
+  contentType: string;
+  width: number;
+  height: number;
+  updatedAt: string;
+  calibration: MapCalibration | null;
+};
+
+export type MapCalibrationInput = {
+  pixelPointA: MapPoint;
+  pixelPointB: MapPoint;
+  worldPointA: MapPoint;
+  worldPointB: MapPoint;
+};
+
+export type MapObstacle = {
+  id: string;
+  name: string;
+  points: MapPoint[];
+  safetyMargin: number;
+  active: boolean;
+};
+
+export type MapObstacleInput = Pick<MapObstacle, 'name' | 'points' | 'safetyMargin'>;
 
 export type FleetMapDetail = FleetMap & {
   nodes: MapNode[];
   edges: MapEdge[];
+  background: MapBackground | null;
+  obstacles: MapObstacle[];
 };
 
 export type MapNodeInput = Pick<MapNode, 'nodeKey' | 'x' | 'y' | 'theta'>;
+export type MapNodePositionInput = Pick<MapNode, 'x' | 'y'> & { theta?: number };
 export type MapEdgeInput = Pick<
   MapEdge,
   'edgeKey' | 'fromNodeKey' | 'toNodeKey' | 'distance' | 'bidirectional'
@@ -81,6 +122,16 @@ export type MissionInput = {
   startNodeKey: string;
   goalNodeKey: string;
   priority: number;
+};
+
+export type MissionTrajectoryPoint = {
+  timestamp: string;
+  x: number;
+  y: number;
+  theta: number;
+  mapId: string;
+  lastNodeId: string | null;
+  batteryCharge: number | null;
 };
 
 export type MissionDispatchResponse = {
@@ -156,6 +207,7 @@ export function createApiClient(baseUrl: string) {
       const details = await readResponseBody(response);
       throw new ApiError(errorMessage(details, response.status), response.status, details);
     }
+    if (response.status === 204) return undefined as T;
     return (await response.json()) as T;
   }
 
@@ -185,12 +237,47 @@ export function createApiClient(baseUrl: string) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(input),
       }),
+    uploadMapBackground: (mapId: string, file: File) =>
+      request<MapBackground>(
+        `/maps/${encodeURIComponent(mapId)}/background?filename=${encodeURIComponent(file.name)}`,
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': file.type || 'application/octet-stream' },
+          body: file,
+        },
+      ),
+    calibrateMapBackground: (mapId: string, input: MapCalibrationInput) =>
+      request<MapBackground>(`/maps/${encodeURIComponent(mapId)}/background/calibration`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(input),
+      }),
+    createMapObstacle: (mapId: string, input: MapObstacleInput) =>
+      request<MapObstacle>(`/maps/${encodeURIComponent(mapId)}/obstacles`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(input),
+      }),
+    deleteMapObstacle: (mapId: string, obstacleId: string) =>
+      request<void>(
+        `/maps/${encodeURIComponent(mapId)}/obstacles/${encodeURIComponent(obstacleId)}`,
+        { method: 'DELETE' },
+      ),
     addMapNode: (mapId: string, input: MapNodeInput) =>
       request<{ id: string; nodeKey: string }>(`/maps/${encodeURIComponent(mapId)}/nodes`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(input),
       }),
+    updateMapNode: (mapId: string, nodeKey: string, input: MapNodePositionInput) =>
+      request<MapNode>(
+        `/maps/${encodeURIComponent(mapId)}/nodes/${encodeURIComponent(nodeKey)}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(input),
+        },
+      ),
     addMapEdge: (mapId: string, input: MapEdgeInput) =>
       request<{ id: string; edgeKey: string }>(`/maps/${encodeURIComponent(mapId)}/edges`, {
         method: 'POST',
@@ -204,6 +291,12 @@ export function createApiClient(baseUrl: string) {
         body: JSON.stringify({ startNodeKey, goalNodeKey }),
       }),
     listMissions: () => request<Mission[]>('/missions'),
+    getMission: (missionId: string) =>
+      request<Mission>(`/missions/${encodeURIComponent(missionId)}`),
+    getMissionTrajectory: (missionId: string) =>
+      request<MissionTrajectoryPoint[]>(
+        `/missions/${encodeURIComponent(missionId)}/trajectory`,
+      ),
     createMission: (input: MissionInput) =>
       request<Mission>('/missions', {
         method: 'POST',
@@ -246,3 +339,8 @@ export const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000/api/v1';
 
 export const apiClient = createApiClient(API_BASE_URL);
+
+export function mapBackgroundUrl(mapId: string, updatedAt?: string): string {
+  const suffix = updatedAt ? `?updatedAt=${encodeURIComponent(updatedAt)}` : '';
+  return `${API_BASE_URL.replace(/\/$/, '')}/maps/${encodeURIComponent(mapId)}/background/content${suffix}`;
+}

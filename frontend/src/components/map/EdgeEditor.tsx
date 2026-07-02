@@ -15,7 +15,7 @@ export function EdgeEditor({
   const [edgeKey, setEdgeKey] = useState('');
   const [fromNodeKey, setFromNodeKey] = useState('');
   const [toNodeKey, setToNodeKey] = useState('');
-  const [distance, setDistance] = useState('1');
+  const [distance, setDistance] = useState('');
   const [bidirectional, setBidirectional] = useState(false);
 
   const resolvedFromNodeKey = nodes.some((node) => node.nodeKey === fromNodeKey)
@@ -24,6 +24,13 @@ export function EdgeEditor({
   const resolvedToNodeKey = nodes.some((node) => node.nodeKey === toNodeKey)
     ? toNodeKey
     : nodes[1]?.nodeKey ?? nodes[0]?.nodeKey ?? '';
+  const fromNode = nodes.find((node) => node.nodeKey === resolvedFromNodeKey);
+  const toNode = nodes.find((node) => node.nodeKey === resolvedToNodeKey);
+  const suggestedDistance =
+    fromNode && toNode
+      ? String(Math.round(Math.hypot(toNode.x - fromNode.x, toNode.y - fromNode.y) * 1000) / 1000)
+      : '';
+  const resolvedDistance = distance || suggestedDistance;
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -31,10 +38,11 @@ export function EdgeEditor({
       edgeKey: edgeKey.trim(),
       fromNodeKey: resolvedFromNodeKey,
       toNodeKey: resolvedToNodeKey,
-      distance: Number(distance),
+      distance: Number(resolvedDistance),
       bidirectional,
     });
     setEdgeKey('');
+    setDistance('');
   };
 
   return (
@@ -45,18 +53,19 @@ export function EdgeEditor({
         <input className="h-9 rounded-md border bg-background px-3" onChange={(event) => setEdgeKey(event.target.value)} required value={edgeKey} />
       </label>
       <div className="grid grid-cols-2 gap-2">
-        <NodeSelect label="From" nodes={nodes} onChange={setFromNodeKey} value={resolvedFromNodeKey} />
-        <NodeSelect label="To" nodes={nodes} onChange={setToNodeKey} value={resolvedToNodeKey} />
+        <NodeSelect label="From" nodes={nodes} onChange={(value) => { setFromNodeKey(value); setDistance(''); }} value={resolvedFromNodeKey} />
+        <NodeSelect label="To" nodes={nodes} onChange={(value) => { setToNodeKey(value); setDistance(''); }} value={resolvedToNodeKey} />
       </div>
       <label className="grid gap-1 text-xs font-medium">
         Distance
-        <input className="h-9 rounded-md border bg-background px-3" min="0" onChange={(event) => setDistance(event.target.value)} required step="any" type="number" value={distance} />
+        <input className="h-9 rounded-md border bg-background px-3" min="0.001" onChange={(event) => setDistance(event.target.value)} required step="any" type="number" value={resolvedDistance} />
+        <span className="text-[0.68rem] text-muted-foreground">Suggested from node coordinates; edit to override.</span>
       </label>
       <label className="flex items-center gap-2 text-xs font-medium">
         <input checked={bidirectional} onChange={(event) => setBidirectional(event.target.checked)} type="checkbox" />
         Bidirectional
       </label>
-      <Button disabled={disabled || nodes.length < 2} size="sm" type="submit">Save edge</Button>
+      <Button disabled={disabled || nodes.length < 2 || resolvedFromNodeKey === resolvedToNodeKey} size="sm" type="submit">Save edge</Button>
     </form>
   );
 }

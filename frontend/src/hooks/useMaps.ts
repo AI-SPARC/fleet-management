@@ -1,6 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { apiClient, type MapEdgeInput, type MapNodeInput } from '../api/client';
+import {
+  apiClient,
+  type MapCalibrationInput,
+  type MapEdgeInput,
+  type MapNodeInput,
+  type MapNodePositionInput,
+  type MapObstacleInput,
+} from '../api/client';
 import { queryKeys } from '../api/queryKeys';
 
 export function useMaps() {
@@ -39,6 +46,55 @@ export function useAddMapEdge(mapId: string | undefined) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (input: MapEdgeInput) => apiClient.addMapEdge(mapId as string, input),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: queryKeys.maps.detail(mapId ?? '') }),
+  });
+}
+
+export function useUpdateMapNode(mapId: string | undefined) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ nodeKey, position }: { nodeKey: string; position: MapNodePositionInput }) =>
+      apiClient.updateMapNode(mapId as string, nodeKey, position),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: queryKeys.maps.detail(mapId ?? '') }),
+  });
+}
+
+export function useUploadMapBackground(mapId: string | undefined) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (file: File) => apiClient.uploadMapBackground(mapId as string, file),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: queryKeys.maps.detail(mapId ?? '') }),
+  });
+}
+
+export function useCalibrateMapBackground(mapId: string | undefined) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: MapCalibrationInput) =>
+      apiClient.calibrateMapBackground(mapId as string, input),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: queryKeys.maps.detail(mapId ?? '') }),
+  });
+}
+
+export function useCreateMapObstacle(mapId: string | undefined) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: MapObstacleInput) =>
+      apiClient.createMapObstacle(mapId as string, input),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: queryKeys.maps.detail(mapId ?? '') }),
+  });
+}
+
+export function useDeleteMapObstacle(mapId: string | undefined) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (obstacleId: string) =>
+      apiClient.deleteMapObstacle(mapId as string, obstacleId),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: queryKeys.maps.detail(mapId ?? '') }),
   });

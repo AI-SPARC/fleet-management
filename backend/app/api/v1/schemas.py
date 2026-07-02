@@ -36,6 +36,7 @@ class RobotStateRead(BaseModel):
     edge_states: list[dict[str, Any]] | None = Field(serialization_alias="edgeStates")
     action_states: list[dict[str, Any]] | None = Field(serialization_alias="actionStates")
     raw_payload: dict[str, Any] = Field(serialization_alias="rawPayload")
+    received_at: datetime = Field(serialization_alias="receivedAt")
 
 
 class InstantActionCreate(BaseModel):
@@ -79,11 +80,57 @@ class MapEdgeRead(BaseModel):
     to_node_key: str = Field(serialization_alias="toNodeKey")
     distance: float
     bidirectional: bool
+    blocked: bool = False
+    block_reasons: list[str] = Field(default_factory=list, serialization_alias="blockReasons")
+
+
+class CalibrationPoint(BaseModel):
+    x: float
+    y: float
+
+
+class MapObstacleCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=160)
+    points: list[CalibrationPoint] = Field(min_length=3)
+    safety_margin: float = Field(default=0.0, alias="safetyMargin", ge=0)
+
+
+class MapObstacleRead(BaseModel):
+    id: str
+    name: str
+    points: list[CalibrationPoint]
+    safety_margin: float = Field(serialization_alias="safetyMargin")
+    active: bool
+
+
+class MapCalibrationRead(BaseModel):
+    meters_per_pixel: float = Field(serialization_alias="metersPerPixel")
+    origin_pixel_x: float = Field(serialization_alias="originPixelX")
+    origin_pixel_y: float = Field(serialization_alias="originPixelY")
+    rotation_degrees: float = Field(serialization_alias="rotationDegrees")
+
+
+class MapBackgroundRead(BaseModel):
+    filename: str
+    content_type: str = Field(serialization_alias="contentType")
+    width: int
+    height: int
+    updated_at: datetime = Field(serialization_alias="updatedAt")
+    calibration: MapCalibrationRead | None = None
 
 
 class MapDetailRead(MapRead):
     nodes: list[MapNodeRead]
     edges: list[MapEdgeRead]
+    background: MapBackgroundRead | None = None
+    obstacles: list[MapObstacleRead] = Field(default_factory=list)
+
+
+class MapCalibrationUpdate(BaseModel):
+    pixel_point_a: CalibrationPoint = Field(alias="pixelPointA")
+    pixel_point_b: CalibrationPoint = Field(alias="pixelPointB")
+    world_point_a: CalibrationPoint = Field(alias="worldPointA")
+    world_point_b: CalibrationPoint = Field(alias="worldPointB")
 
 
 class NodeCreate(BaseModel):
@@ -91,6 +138,12 @@ class NodeCreate(BaseModel):
     x: float
     y: float
     theta: float = 0.0
+
+
+class NodeUpdate(BaseModel):
+    x: float
+    y: float
+    theta: float | None = None
 
 
 class EdgeCreate(BaseModel):
@@ -126,6 +179,16 @@ class MissionRead(BaseModel):
     goal_node_key: str = Field(serialization_alias="goalNodeKey")
     status: str
     priority: int
+
+
+class MissionTrajectoryPointRead(BaseModel):
+    timestamp: datetime
+    x: float
+    y: float
+    theta: float
+    map_id: str = Field(serialization_alias="mapId")
+    last_node_id: str | None = Field(serialization_alias="lastNodeId")
+    battery_charge: float | None = Field(serialization_alias="batteryCharge")
 
 
 class MissionDispatchRead(BaseModel):

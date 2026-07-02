@@ -3,6 +3,7 @@ import { createRootRoute, createRoute, createRouter } from '@tanstack/react-rout
 import { App } from '../App';
 import { DashboardPage } from '../pages/DashboardPage';
 import { MapPage } from '../pages/MapPage';
+import { MissionLivePage } from '../pages/MissionLivePage';
 import { MissionsPage } from '../pages/MissionsPage';
 import { MqttLogsPage } from '../pages/MqttLogsPage';
 import { PlaceholderPage } from '../pages/PlaceholderPage';
@@ -35,6 +36,11 @@ const missionsRoute = createRoute({
   path: '/missions',
   component: MissionsPage,
 });
+const missionLiveRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/missions/$missionId/live',
+  component: MissionLivePage,
+});
 const mqttLogsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/mqtt',
@@ -59,6 +65,7 @@ export const routeTree = rootRoute.addChildren([
   robotDetailRoute,
   mapRoute,
   missionsRoute,
+  missionLiveRoute,
   mqttLogsRoute,
   ...placeholderRoutes,
 ]);

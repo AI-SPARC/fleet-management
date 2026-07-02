@@ -19,6 +19,16 @@ Content-Type: application/json
 }
 ```
 
+Read mission state and its persisted trajectory:
+
+```http
+GET /api/v1/missions/{mission_id}
+GET /api/v1/missions/{mission_id}/trajectory
+```
+
+Mission trajectory returns timestamped metric positions extracted from persisted VDA 5050 states
+whose `orderId` matches the mission. Invalid or positionless samples are omitted.
+
 Both nodes must exist on the selected map. A mission created with a robot starts as
 `assigned`; without a robot it starts as `queued`.
 
@@ -100,9 +110,23 @@ GET  /api/v1/maps
 POST /api/v1/maps
 GET  /api/v1/maps/{map_id}
 POST /api/v1/maps/{map_id}/nodes
+PATCH /api/v1/maps/{map_id}/nodes/{node_key}
 POST /api/v1/maps/{map_id}/edges
 POST /api/v1/maps/{map_id}/route-preview
+PUT  /api/v1/maps/{map_id}/background
+GET  /api/v1/maps/{map_id}/background/content
+PUT  /api/v1/maps/{map_id}/background/calibration
+DELETE /api/v1/maps/{map_id}/background
+POST /api/v1/maps/{map_id}/obstacles
+DELETE /api/v1/maps/{map_id}/obstacles/{obstacle_id}
 ```
+
+Background upload accepts raw PNG/JPEG bytes and a `filename` query parameter. Calibration accepts
+two pixel points and their corresponding metric world points. Map details return the derived
+meters-per-pixel, image origin, and rotation used by the frontend overlay.
+
+Obstacle polygons use metric map coordinates. Route planning excludes an edge when its segment,
+buffered by the configured robot radius and the obstacle safety margin, intersects that polygon.
 
 Map detail returns the complete node and edge graph used by the operator editor. Nodes carry
 Cartesian position and orientation; edges carry direction, distance, and bidirectional metadata.

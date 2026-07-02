@@ -4,6 +4,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { EdgeEditor } from './EdgeEditor';
+import { MapBackgroundEditor } from './MapBackgroundEditor';
 import { MapGraph } from './MapGraph';
 import { NodeEditor } from './NodeEditor';
 
@@ -21,6 +22,8 @@ describe('map graph workspace', () => {
           id: 'map-1',
           name: 'Lab',
           description: null,
+          background: null,
+          obstacles: [],
           nodes,
           edges: [
             {
@@ -30,6 +33,8 @@ describe('map graph workspace', () => {
               toNodeKey: 'B',
               distance: 5.4,
               bidirectional: false,
+              blocked: false,
+              blockReasons: [],
             },
           ],
         }}
@@ -78,9 +83,185 @@ describe('map graph workspace', () => {
         edgeKey: 'A-B',
         fromNodeKey: 'A',
         toNodeKey: 'B',
-        distance: 1,
+        distance: 5.385,
         bidirectional: true,
       }),
     );
+  });
+
+  it('projects the graph over a calibrated background image', () => {
+    const { container } = render(
+      <MapGraph
+        map={{
+          id: 'map-1',
+          name: 'Calibrated lab',
+          description: null,
+          nodes,
+          edges: [],
+          background: {
+            filename: 'lab.png',
+            contentType: 'image/png',
+            width: 800,
+            height: 400,
+            updatedAt: '2026-06-30T20:00:00Z',
+            calibration: {
+              metersPerPixel: 0.02,
+              originPixelX: 100,
+              originPixelY: 300,
+              rotationDegrees: 0,
+            },
+          },
+          obstacles: [],
+        }}
+        robots={[]}
+      />,
+    );
+
+    expect(container.querySelector('[data-map-background]')).toBeInTheDocument();
+    expect(container.querySelector('[data-node-key="A"]')).toHaveAttribute(
+      'transform',
+      'translate(100 300)',
+    );
+  });
+
+  it('converts map clicks and node drags into metric coordinates', () => {
+    const selectPoint = vi.fn();
+    const moveNode = vi.fn();
+    vi.spyOn(SVGSVGElement.prototype, 'getBoundingClientRect').mockReturnValue({
+      left: 0,
+      top: 0,
+      width: 800,
+      height: 400,
+      right: 800,
+      bottom: 400,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    });
+    const { container } = render(
+      <MapGraph
+        map={{
+          id: 'map-1',
+          name: 'Editable lab',
+          description: null,
+          nodes,
+          edges: [],
+          background: {
+            filename: 'lab.png',
+            contentType: 'image/png',
+            width: 800,
+            height: 400,
+            updatedAt: '2026-06-30T20:00:00Z',
+            calibration: {
+              metersPerPixel: 0.02,
+              originPixelX: 100,
+              originPixelY: 300,
+              rotationDegrees: 0,
+            },
+          },
+          obstacles: [],
+        }}
+        onMapClick={selectPoint}
+        onNodeMove={moveNode}
+        robots={[]}
+      />,
+    );
+    const map = screen.getByRole('img', { name: 'Graph map Editable lab' });
+    fireEvent.click(map, { clientX: 300, clientY: 200 });
+    fireEvent.pointerDown(container.querySelector('[data-node-key="A"]')!, { pointerId: 1 });
+    fireEvent.pointerMove(map, { clientX: 300, clientY: 200, pointerId: 1 });
+    fireEvent.pointerUp(map, { clientX: 300, clientY: 200, pointerId: 1 });
+
+    expect(selectPoint).toHaveBeenCalledWith({ x: 4, y: 2 });
+    expect(moveNode).toHaveBeenCalledWith('A', { x: 4, y: 2 });
+  });
+
+  it('captures two image points and their world coordinates for calibration', () => {
+    const calibrate = vi.fn().mockResolvedValue(undefined);
+    vi.spyOn(SVGSVGElement.prototype, 'getBoundingClientRect').mockReturnValue({
+      left: 0,
+      top: 0,
+      width: 800,
+      height: 400,
+      right: 800,
+      bottom: 400,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    });
+    render(
+      <MapBackgroundEditor
+        background={{
+          filename: 'lab.png',
+          contentType: 'image/png',
+          width: 800,
+          height: 400,
+          updatedAt: '2026-06-30T20:00:00Z',
+          calibration: null,
+        }}
+        busy={false}
+        mapId="map-1"
+        onCalibrate={calibrate}
+        onUpload={vi.fn()}
+      />,
+    );
+
+    const image = screen.getByRole('img', { name: 'Calibration image' });
+    fireEvent.click(image, { clientX: 100, clientY: 300 });
+    fireEvent.click(image, { clientX: 600, clientY: 300 });
+    fireEvent.change(screen.getAllByLabelText('X (m)')[1], { target: { value: '10' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save calibration' }));
+
+    expect(calibrate).toHaveBeenCalledWith({
+      pixelPointA: { x: 100, y: 300 },
+      pixelPointB: { x: 600, y: 300 },
+      worldPointA: { x: 0, y: 0 },
+      worldPointB: { x: 10, y: 0 },
+    });
+  });
+
+  it('renders obstacle polygons and marks blocked edges', () => {
+    const { container } = render(
+      <MapGraph
+        map={{
+          id: 'map-1',
+          name: 'Blocked lab',
+          description: null,
+          background: null,
+          nodes,
+          obstacles: [
+            {
+              id: 'obstacle-1',
+              name: 'Pallet',
+              points: [
+                { x: 2, y: 0 },
+                { x: 3, y: 0 },
+                { x: 3, y: 1 },
+                { x: 2, y: 1 },
+              ],
+              safetyMargin: 0.1,
+              active: true,
+            },
+          ],
+          edges: [
+            {
+              id: 'edge-a-b',
+              edgeKey: 'A-B',
+              fromNodeKey: 'A',
+              toNodeKey: 'B',
+              distance: 5.4,
+              bidirectional: false,
+              blocked: true,
+              blockReasons: ['Pallet'],
+            },
+          ],
+        }}
+        robots={[]}
+      />,
+    );
+
+    expect(container.querySelector('[data-obstacle-id="obstacle-1"]')).toBeInTheDocument();
+    expect(container.querySelector('[data-edge-key="A-B"]')).toHaveAttribute('stroke', '#dc2626');
+    expect(screen.getByText('Blocked by: Pallet')).toBeInTheDocument();
   });
 });

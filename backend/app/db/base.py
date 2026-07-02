@@ -3,10 +3,19 @@ from datetime import datetime
 from typing import Any
 from uuid import uuid4
 
-from sqlalchemy import DateTime, ForeignKey, String, UniqueConstraint, func
+from sqlalchemy import (
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    LargeBinary,
+    String,
+    UniqueConstraint,
+    func,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy.orm import DeclarativeBase, Mapped, deferred, mapped_column, relationship
 from sqlalchemy.types import JSON
 
 from app.core.config import get_settings
@@ -77,6 +86,26 @@ class MapLayout(Base):
     edges: Mapped[list["MapEdge"]] = relationship(cascade="all, delete-orphan")
 
 
+class MapBackground(Base):
+    __tablename__ = "map_backgrounds"
+
+    map_id: Mapped[str] = mapped_column(
+        ForeignKey("maps.id", ondelete="CASCADE"), primary_key=True
+    )
+    filename: Mapped[str] = mapped_column(String(255), nullable=False)
+    content_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    image_data: Mapped[bytes] = deferred(mapped_column(LargeBinary, nullable=False))
+    width: Mapped[int] = mapped_column(Integer, nullable=False)
+    height: Mapped[int] = mapped_column(Integer, nullable=False)
+    meters_per_pixel: Mapped[float | None] = mapped_column(Float)
+    origin_pixel_x: Mapped[float | None] = mapped_column(Float)
+    origin_pixel_y: Mapped[float | None] = mapped_column(Float)
+    rotation_degrees: Mapped[float | None] = mapped_column(Float)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
 class MapNode(Base):
     __tablename__ = "map_nodes"
     __table_args__ = (UniqueConstraint("map_id", "node_key", name="uq_map_node_key"),)
@@ -101,6 +130,19 @@ class MapEdge(Base):
     to_node_key: Mapped[str] = mapped_column(String(128), nullable=False)
     distance: Mapped[float] = mapped_column(default=1.0)
     bidirectional: Mapped[bool] = mapped_column(default=False)
+
+
+class MapObstacle(Base):
+    __tablename__ = "map_obstacles"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    map_id: Mapped[str] = mapped_column(
+        ForeignKey("maps.id", ondelete="CASCADE"), nullable=False
+    )
+    name: Mapped[str] = mapped_column(String(160), nullable=False)
+    points: Mapped[list[dict[str, float]]] = mapped_column(json_type(), nullable=False)
+    safety_margin: Mapped[float] = mapped_column(Float, default=0.0)
+    active: Mapped[bool] = mapped_column(default=True)
 
 
 class Mission(Base):

@@ -1,24 +1,35 @@
 import { useMemo, useState, type FormEvent } from 'react';
 
+import type { MapPoint } from '../api/client';
 import { EdgeEditor } from '../components/map/EdgeEditor';
+import { MapBackgroundEditor } from '../components/map/MapBackgroundEditor';
 import { MapGraph } from '../components/map/MapGraph';
 import { NodeEditor } from '../components/map/NodeEditor';
+import { ObstacleEditor } from '../components/map/ObstacleEditor';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import {
   useAddMapEdge,
   useAddMapNode,
+  useCalibrateMapBackground,
   useCreateMap,
+  useCreateMapObstacle,
+  useDeleteMapObstacle,
   useMap,
   useMaps,
   useRoutePreview,
+  useUploadMapBackground,
+  useUpdateMapNode,
 } from '../hooks/useMaps';
 import { useRobots, useRobotStates } from '../hooks/useRobots';
 
 export function MapPage() {
   const maps = useMaps();
   const [selectedMapId, setSelectedMapId] = useState<string>();
+  const [draftNodePosition, setDraftNodePosition] = useState<MapPoint>();
+  const [drawingObstacle, setDrawingObstacle] = useState(false);
+  const [draftObstaclePoints, setDraftObstaclePoints] = useState<MapPoint[]>([]);
   const activeMapId = selectedMapId ?? maps.data?.[0]?.id;
   const map = useMap(activeMapId);
   const robots = useRobots();
@@ -27,6 +38,11 @@ export function MapPage() {
   const addNode = useAddMapNode(activeMapId);
   const addEdge = useAddMapEdge(activeMapId);
   const routePreview = useRoutePreview(activeMapId);
+  const uploadBackground = useUploadMapBackground(activeMapId);
+  const calibrateBackground = useCalibrateMapBackground(activeMapId);
+  const updateNode = useUpdateMapNode(activeMapId);
+  const createObstacle = useCreateMapObstacle(activeMapId);
+  const deleteObstacle = useDeleteMapObstacle(activeMapId);
 
   const robotPositions = useMemo(
     () =>
@@ -58,13 +74,101 @@ export function MapPage() {
 
       {map.data ? (
         <>
+          <MapBackgroundEditor
+            background={map.data.background}
+            busy={uploadBackground.isPending || calibrateBackground.isPending}
+            mapId={map.data.id}
+            onCalibrate={(input) => calibrateBackground.mutateAsync(input)}
+            onUpload={(file) => uploadBackground.mutateAsync(file)}
+          />
+          {(uploadBackground.isError ||
+            calibrateBackground.isError ||
+            updateNode.isError ||
+            createObstacle.isError ||
+            deleteObstacle.isError) && (
+            <p className="m-0 text-sm text-red-700">
+              {uploadBackground.error?.message ||
+                calibrateBackground.error?.message ||
+                updateNode.error?.message ||
+                createObstacle.error?.message ||
+                deleteObstacle.error?.message}
+            </p>
+          )}
           <section className="grid grid-cols-[minmax(0,1fr)_280px] gap-4">
-            <MapGraph map={map.data} robots={robotPositions} highlightedNodeKeys={routePreview.data?.nodeKeys} />
+            <MapGraph
+              highlightedNodeKeys={routePreview.data?.nodeKeys}
+              draftObstaclePoints={draftObstaclePoints}
+              map={map.data}
+              onMapClick={(point) => {
+                const roundedPoint = {
+                  x: roundCoordinate(point.x),
+                  y: roundCoordinate(point.y),
+                };
+                if (drawingObstacle) {
+                  setDraftObstaclePoints((current) => [...current, roundedPoint]);
+                } else {
+                  setDraftNodePosition(roundedPoint);
+                }
+              }}
+              onNodeMove={(nodeKey, position) =>
+                updateNode.mutate({
+                  nodeKey,
+                  position: {
+                    x: roundCoordinate(position.x),
+                    y: roundCoordinate(position.y),
+                  },
+                })
+              }
+              robots={robotPositions}
+            />
             <Card className="rounded-2xl bg-card/80 shadow-none">
               <CardHeader><CardTitle className="text-lg">Graph editor</CardTitle></CardHeader>
               <CardContent className="grid gap-7">
-                <NodeEditor disabled={addNode.isPending} onSubmit={(input) => addNode.mutateAsync(input)} />
+                {map.data.background?.calibration && (
+                  <p className="m-0 text-xs text-muted-foreground">
+                    Click empty space to place a node, or drag an existing node. Existing edge
+                    weights are preserved when nodes move.
+                  </p>
+                )}
+                <NodeEditor
+                  disabled={addNode.isPending}
+                  initialPosition={draftNodePosition}
+                  key={draftNodePosition ? `${draftNodePosition.x}:${draftNodePosition.y}` : 'manual'}
+                  onSubmit={async (input) => {
+                    await addNode.mutateAsync(input);
+                    setDraftNodePosition(undefined);
+                  }}
+                />
                 <EdgeEditor disabled={addEdge.isPending} nodes={map.data.nodes} onSubmit={(input) => addEdge.mutateAsync(input)} />
+                <ObstacleEditor
+                  canDraw={Boolean(map.data.background?.calibration)}
+                  disabled={createObstacle.isPending || deleteObstacle.isPending}
+                  draftPoints={draftObstaclePoints}
+                  drawing={drawingObstacle}
+                  obstacles={map.data.obstacles}
+                  onCancel={() => {
+                    setDrawingObstacle(false);
+                    setDraftObstaclePoints([]);
+                  }}
+                  onDelete={(obstacleId) => deleteObstacle.mutate(obstacleId)}
+                  onSave={async (name, safetyMargin) => {
+                    await createObstacle.mutateAsync({
+                      name,
+                      safetyMargin,
+                      points: draftObstaclePoints,
+                    });
+                    setDrawingObstacle(false);
+                    setDraftObstaclePoints([]);
+                  }}
+                  onStart={() => {
+                    setDraftNodePosition(undefined);
+                    setDraftObstaclePoints([]);
+                    setDrawingObstacle(true);
+                  }}
+                  onUndo={() =>
+                    setDraftObstaclePoints((current) => current.slice(0, -1))
+                  }
+                />
               </CardContent>
             </Card>
           </section>
@@ -82,6 +186,10 @@ export function MapPage() {
       )}
     </div>
   );
+}
+
+function roundCoordinate(value: number): number {
+  return Math.round(value * 1000) / 1000;
 }
 
 function CreateMapForm({ disabled, onSubmit }: { disabled: boolean; onSubmit: (name: string) => Promise<unknown> }) {
